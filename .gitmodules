@@ -1,0 +1,6 @@
+[submodule "unja"]
+	path = unja
+	url = https://github.com/dannyvankooten/unja.git
+[submodule "parcini"]
+	path = parcini
+	url = https://git.yaroslavps.com/parcini
