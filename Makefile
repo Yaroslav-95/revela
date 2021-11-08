@@ -12,6 +12,9 @@ ifdef DEBUG
 BUILDIR:=build/debug
 CFLAGS:=-std=c99 -O0 -g -DDEBUG $(XFLAGS)
 endif
+ifdef ASAN
+CFLAGS+= -fsanitize=address -fno-omit-frame-pointer
+endif
 
 OBJDIR=$(BUILDIR)/obj
 
@@ -37,6 +40,7 @@ $(OBJDIR)/%.o: %.c
 	$(CC) -c $(CFLAGS) $(IDIRS) -o $@ $< $(LIBS)
 
 revela: $(ALL_OBJS)
+	mkdir -p $(@D)
 	$(CC) $(LDFLAGS) -o $(BUILDIR)/$@ $^ $(LIBS) $(CFLAGS)
 
 clean:

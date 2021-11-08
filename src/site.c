@@ -181,6 +181,7 @@ traverse(struct site *site, const char *path, struct stat *dstat)
 	}
 	
 	if (album->images->root != NULL) {
+		album_set_year(album);
 		bstree_add(site->albums, album);
 		closedir(dir);
 		return true;

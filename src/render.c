@@ -93,6 +93,8 @@ albums_walk(struct bstnode *node, void *data)
 	hashmap_insert(album->map, "title", album->config->title);
 	hashmap_insert(album->map, "desc", album->config->desc);
 	hashmap_insert(album->map, "link", album->url);
+	hashmap_insert(album->map, "date", (char *)album->datestr);
+	hashmap_insert(album->map, "year", album->year);
 
 	bstree_inorder_walk(album->images->root, images_walk, NULL);
 
@@ -158,7 +160,7 @@ render_make_index(struct render *r, const char *path)
 bool
 render_make_album(struct render *r, const char *path, const struct album *album)
 {
-	hashmap_insert(r->common_vars, "album", album->map);
+	if (!r->dry_run) hashmap_insert(r->common_vars, "album", album->map);
 
 	RENDER_MAKE_START;
 
@@ -201,7 +203,7 @@ render_init(struct render *r, const char *root, struct site_config *conf,
 
 	r->modtime = tstat.st_mtim;
 
-	if (r->dry_run) return true;
+	if (r->dry_run) goto cleanup;
 
 	r->env = env_new(tmplpath);
 	if (r->env == NULL) {
@@ -221,6 +223,8 @@ render_init(struct render *r, const char *root, struct site_config *conf,
 
 	bstree_inorder_walk(albums->root, albums_walk, (void *)r);
 
+cleanup:
+	free(tmplpath);
 	return true;
 }
 

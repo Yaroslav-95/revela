@@ -199,7 +199,7 @@ album_new(struct album_config *conf, struct site_config *sconf, const char *src,
 	album->slug = slugify(rsrc, sconf->base_url, &album->url);
 	album->images = bstree_new(image_cmp, image_destroy);
 	album->tstamp = MAXTIME;
-	album->map = hashmap_new_with_cap(8);
+	album->map = hashmap_new_with_cap(16);
 	album->thumbs = vector_new(128);
 	album->previews = vector_new(sconf->max_previews);
 
@@ -220,6 +220,15 @@ album_add_image(struct album *album, struct image *image)
 		album->datestr = image->datestr;
 	}
 	bstree_add(album->images, image);
+}
+
+void
+album_set_year(struct album *album)
+{
+	char *delim = strchr(album->datestr, '-');
+	size_t n = delim - album->datestr;
+	strncpy(album->year, album->datestr, n);
+	album->year[n] = '\0';
 }
 
 void

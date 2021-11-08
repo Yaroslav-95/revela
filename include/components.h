@@ -77,6 +77,8 @@ int album_cmp(const void *a, const void *b);
 
 void album_add_image(struct album *, struct image *);
 
+void album_set_year(struct album *);
+
 void album_destroy(void *data);
 
 #endif

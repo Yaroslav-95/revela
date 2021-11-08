@@ -21,6 +21,7 @@ A very rough and dirty representation of the variables in each template.
 	- `desc`
 	- `link`
 	- `date`
+	- `year`
 	- `previews` (vector of thumbs)
 	- `thumbs` (vector)
 		- `link`
