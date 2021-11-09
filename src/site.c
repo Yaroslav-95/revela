@@ -197,7 +197,15 @@ bool
 site_build(struct site *site)
 {
 	struct stat dstat;
+	char staticp[PATH_MAX];
+
 	if (!nmkdir(site->output_dir, &dstat, false)) return false;
+
+	joinpathb(staticp, site->root_dir, STATICDIR);
+	if (!filesync(staticp, site->output_dir) && errno != ENOENT) {
+		log_printl_errno(LOG_FATAL, "Can't copy static files");
+		return false;
+	}
 
 	if (chdir(site->output_dir)) {
 		log_printl_errno(LOG_FATAL, "Can't change to directory %s",
@@ -210,7 +218,7 @@ site_build(struct site *site)
 	if (!bstree_inorder_walk(site->albums->root, albums_walk, (void *)site)) {
 		return false;
 	}
-	/* TODO: static files and css */
+
 	chdir(site->root_dir);
 	return true;
 }

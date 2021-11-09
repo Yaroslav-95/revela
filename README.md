@@ -21,7 +21,6 @@ DEBUG=1 make
 
 ## TODO:
 
-* Copy CSS and static files
 * Fix template generation on outdated html files. Right now if, for example, a
   new image was added, the templates for the next and prev images, and the album
   are not updated accordingly.

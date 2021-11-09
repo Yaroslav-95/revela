@@ -37,7 +37,18 @@ const char *delext(const char *restrict basename, char *restrict dest, size_t n)
  */
 int file_is_uptodate(const char *path, const struct timespec *srcmtim);
 
-/* Sets access and modification times to the time passed */
+/* 
+ * Sets access and modification times to the time passed.
+ */
 void setdatetime(const char *path, const struct timespec *mtim);
+
+/* 
+ * Copies file(s) truncating and overwritting the file(s) in the destination
+ * path if they exist and are not a directory, or creating them if they don't
+ * exist. If srcpath is a directory, copies all files within that directory
+ * recursively. Only copies the regular files that already exist if their
+ * timestamps do not match.
+ */
+bool filesync(const char *restrict srcpath, const char *restrict dstpath);
 
 #endif
