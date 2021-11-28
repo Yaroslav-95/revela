@@ -199,6 +199,7 @@ album_new(struct album_config *conf, struct site_config *sconf, const char *src,
 	album->slug = slugify(rsrc, sconf->base_url, &album->url);
 	album->images = bstree_new(image_cmp, image_destroy);
 	album->tstamp = MAXTIME;
+	album->image_dirs = hashmap_new();
 	album->map = hashmap_new_with_cap(16);
 	album->thumbs = vector_new(128);
 	album->previews = vector_new(sconf->max_previews);
@@ -241,6 +242,7 @@ album_destroy(void *data)
 	free(album->source);
 	free(album->url);
 	bstree_destroy(album->images);
+	hashmap_free(album->image_dirs);
 	hashmap_free(album->map);
 	vector_free(album->thumbs);
 	vector_free(album->previews);

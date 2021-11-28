@@ -1,9 +1,16 @@
 #ifndef REVELA_FS_H
 #define REVELA_FS_H
 
-#include <stdio.h>
 #include <stdbool.h>
 #include <sys/stat.h>
+
+#include "hashmap.h"
+
+enum nmkdir_res {
+	NMKDIR_ERROR,
+	NMKDIR_NOOP,
+	NMKDIR_CREATED,
+};
 
 /* 
  * Returns a pointer to where the basename of the file is inside path.
@@ -14,7 +21,7 @@ const char *rbasename(const char *path);
  * Makes a new directory if it doesn't exist. If there were errors returns
  * false, otherwise returns true.
  */
-bool nmkdir(const char *path, struct stat *dstat, bool dry);
+enum nmkdir_res nmkdir(const char *path, struct stat *dstat, bool dry);
 
 #define joinpathb(buf, a, b) sprintf(buf, "%s/%s", a, b)
 
@@ -42,6 +49,16 @@ int file_is_uptodate(const char *path, const struct timespec *srcmtim);
  */
 void setdatetime(const char *path, const struct timespec *mtim);
 
+bool rmentry(const char *path);
+
+/* 
+ * Recursively deletes extaneous files from directory, keeping files in the
+ * preserved hashmap. Returns -1 on error, number of deleted entries on success.
+ * The number is not the total number of files on all subdirectories, but only
+ * the number of files/dirs deleted from the directory pointed by path.
+ */
+ssize_t rmextra(const char *path, struct hashmap *preserved);
+
 /* 
  * Copies file(s) truncating and overwritting the file(s) in the destination
  * path if they exist and are not a directory, or creating them if they don't
@@ -49,6 +66,7 @@ void setdatetime(const char *path, const struct timespec *mtim);
  * recursively. Only copies the regular files that already exist if their
  * timestamps do not match.
  */
-bool filesync(const char *restrict srcpath, const char *restrict dstpath);
+bool filesync(const char *restrict srcpath, const char *restrict dstpath,
+		struct hashmap *preserved);
 
 #endif

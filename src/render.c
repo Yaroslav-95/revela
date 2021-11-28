@@ -84,11 +84,9 @@ years_destroy(struct vector *years)
 	vector_free(years);
 }
 
-static bool
-albums_walk(struct bstnode *node, void *data)
+bool
+render_set_album_vars(struct render *r, struct album *album)
 {
-	struct album *album = node->value;
-	struct render *r = data;
 
 	hashmap_insert(album->map, "title", album->config->title);
 	hashmap_insert(album->map, "desc", album->config->desc);
@@ -213,7 +211,7 @@ render_init(struct render *r, const char *root, struct site_config *conf,
 	r->years = vector_new(8);
 	r->albums = vector_new(64);
 
-	r->common_vars = hashmap_new_with_cap(8);
+	r->common_vars = hashmap_new_with_cap(16);
 	hashmap_insert(r->common_vars, "title", conf->title);
 	if (strlen(conf->base_url) == 0) {
 		hashmap_insert(r->common_vars, "index", "/");
@@ -221,7 +219,7 @@ render_init(struct render *r, const char *root, struct site_config *conf,
 		hashmap_insert(r->common_vars, "index", conf->base_url);
 	}
 
-	bstree_inorder_walk(albums->root, albums_walk, (void *)r);
+	//bstree_inorder_walk(albums->root, albums_walk, (void *)r);
 
 cleanup:
 	free(tmplpath);

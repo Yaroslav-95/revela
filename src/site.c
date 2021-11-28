@@ -9,11 +9,14 @@
 #include "fs.h"
 #include "log.h"
 #include "hashmap.h"
+#include "render.h"
 
 /* TODO: Probably shouldn't use PATH_MAX, but i'll leave it for now */
 /* TODO: handle error cases for paths that are too long */
 
 #define THUMB_SUFFIX "_thumb"
+
+static const char *index_html = "index.html";
 
 static bool
 wand_passfail(MagickWand *wand, MagickPassFail status)
@@ -80,6 +83,8 @@ images_walk(struct bstnode *node, void *data)
 	struct site *site = data;
 	struct image *image = node->value;
 	struct stat dstat;
+	char htmlpath[PATH_MAX];
+	const char *base = rbasename(image->dst);
 
 	log_printl(LOG_DEBUG, "Image: %s, datetime %s", image->basename, 
 			image->datestr);
@@ -101,8 +106,8 @@ images_walk(struct bstnode *node, void *data)
 		MagickRemoveImage(site->wand);
 	}
 
-	char htmlpath[PATH_MAX];
-	joinpathb(htmlpath, image->dst, "index.html");
+	joinpathb(htmlpath, image->dst, index_html);
+	hashmap_insert(image->album->preserved, base, (char *)base);
 	return render_make_image(&site->render, htmlpath, image);
 magick_fail:
 	return false;
@@ -116,12 +121,27 @@ albums_walk(struct bstnode *node, void *data)
 	struct stat dstat;
 	if (!nmkdir(album->slug, &dstat, site->dry_run)) return false;
 
+	if (!site->dry_run) {
+		hashmap_insert(site->album_dirs, album->slug, (char *)album->slug);
+		if (!render_set_album_vars(&site->render, album)) return false;
+	}
+
 	char htmlpath[PATH_MAX];
-	joinpathb(htmlpath, album->slug, "index.html");
+	joinpathb(htmlpath, album->slug, index_html);
 	if (!render_make_album(&site->render, htmlpath, album)) return false;
 
 	log_printl(LOG_DEBUG, "Album: %s, datetime %s", album->slug, album->datestr);
-	return bstree_inorder_walk(album->images->root, images_walk, site);
+	if (!bstree_inorder_walk(album->images->root, images_walk, site)) {
+		return false;
+	}
+
+	hashmap_insert(album->preserved, index_html, (char *)index_html);
+	if (rmextra(album->slug, album->preserved) < 0) {
+		log_printl_errno(LOG_ERROR, 
+					"Something happened while deleting extraneous files");
+	}
+
+	return true;
 }
 
 /*
@@ -201,21 +221,32 @@ site_build(struct site *site)
 
 	if (!nmkdir(site->output_dir, &dstat, false)) return false;
 
-	joinpathb(staticp, site->root_dir, STATICDIR);
-	if (!filesync(staticp, site->output_dir) && errno != ENOENT) {
-		log_printl_errno(LOG_FATAL, "Can't copy static files");
-		return false;
-	}
-
 	if (chdir(site->output_dir)) {
 		log_printl_errno(LOG_FATAL, "Can't change to directory %s",
 				site->output_dir);
 		return false;
 	}
 
-	if (!render_make_index(&site->render, "index.html")) return false;
-
 	if (!bstree_inorder_walk(site->albums->root, albums_walk, (void *)site)) {
+		return false;
+	}
+
+	if (!render_make_index(&site->render, index_html)) return false;
+	hashmap_insert(site->album_dirs, index_html, (char *)index_html);
+
+	joinpathb(staticp, site->root_dir, STATICDIR);
+	if (stat(staticp, &dstat)) {
+		if (errno != ENOENT) {
+			log_printl_errno(LOG_FATAL, "Couldn't read static dir");
+			return false;
+		}
+		if (rmextra(site->output_dir, site->album_dirs) < 0) {
+			log_printl_errno(LOG_ERROR,
+					"Something happened while deleting extraneous files");
+		}
+	} else if (!site->dry_run 
+			&& !filesync(staticp, site->output_dir, site->album_dirs)) {
+		log_printl(LOG_FATAL, "Can't copy static files");
 		return false;
 	}
 
@@ -256,6 +287,9 @@ site_init(struct site *site)
 	site->rel_content_dir = strlen(site->root_dir) + 1;
 	InitializeMagick(NULL);
 	site->wand = NewMagickWand();
+	if (!site->dry_run) {
+		site->album_dirs = hashmap_new();
+	}
 	site->render.dry_run = site->dry_run;
 
 	return true;
@@ -273,6 +307,7 @@ site_deinit(struct site *site)
 		DestroyMagick();
 	}
 	if (!site->dry_run) {
+		hashmap_free(site->album_dirs);
 		render_deinit(&site->render);
 	}
 }

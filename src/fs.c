@@ -2,6 +2,7 @@
 
 #include "log.h"
 #include "config.h"
+#include "vector.h"
 
 #include <fcntl.h>
 #include <stdio.h>
@@ -35,6 +36,12 @@ static const char *img_extensions[] = {
 	NULL,
 };
 
+static void
+hm_destroy_callback(const void *k, void *v)
+{
+	free(v);
+}
+
 const char *
 rbasename(const char *path)
 {
@@ -45,44 +52,43 @@ rbasename(const char *path)
 	return delim + 1;
 }
 
-bool
+enum nmkdir_res
 nmkdir(const char *path, struct stat *dstat, bool dry)
 {
 	if (dry) {
 		if (stat(path, dstat)) {
 			if (errno == ENOENT) {
 				log_printl(LOG_DETAIL, "Created directory %s", path);
-				return true;
+				return NMKDIR_CREATED;
 			}
 			log_printl_errno(LOG_FATAL, "Can't read %s", path);
-			return false;
+			return NMKDIR_ERROR;
 		}
 		if (!S_ISDIR(dstat->st_mode)) {
 			log_printl(LOG_FATAL, "%s is not a directory", path);
-			return false;
+			return NMKDIR_ERROR;
 		}
-		return true;
+		return NMKDIR_NOOP;
 	}
 
 	if(mkdir(path, 0755) < 0) {
 		if (errno == EEXIST) {
 			if (stat(path, dstat)) {
 				log_printl_errno(LOG_FATAL, "Can't read %s", path);
-				return false;
+				return NMKDIR_ERROR;
 			}
 			if (!S_ISDIR(dstat->st_mode)) {
 				log_printl(LOG_FATAL, "%s is not a directory", path);
-				return false;
+				return NMKDIR_ERROR;
 			}
+			return NMKDIR_NOOP;
 		} else {
 			log_printl_errno(LOG_FATAL, "Can't make directory %s", path);
-			return false;
+			return NMKDIR_ERROR;
 		}
-	} else {
-		log_printl(LOG_DETAIL, "Created directory %s", path);
 	}
-
-	return true;
+	log_printl(LOG_DETAIL, "Created directory %s", path);
+	return NMKDIR_CREATED;
 }
 
 char *
@@ -151,26 +157,126 @@ setdatetime(const char *path, const struct timespec *mtim)
 }
 
 bool
-filesync(const char *restrict srcpath, const char *restrict dstpath)
+rmentry(const char *path)
+{
+	struct stat st;
+	if (stat(path, &st)) {
+		log_printl_errno(LOG_ERROR, "Can't stat file %s", path);
+		return false;
+	}
+
+	if (S_ISDIR(st.st_mode)) {
+		DIR *dir = opendir(path);
+		struct dirent *ent;
+		while ((ent = readdir(dir))) {
+			if (!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, "..")) {
+				continue;
+			}
+
+			char target[PATH_MAX];
+			sprintf(target, "%s/%s", path, ent->d_name);
+			if (!rmentry(target)) {
+				closedir(dir);
+				return false;
+			}
+		}
+
+		closedir(dir);
+		if (rmdir(path)) goto error;
+		goto success;
+	}
+
+	if (unlink(path)) goto error;
+
+success:
+	log_printl(LOG_DETAIL, "Deleted %s", path);
+	return true;
+error:
+	log_printl_errno(LOG_ERROR, "Can't delete %s", path);
+	return false;
+}
+
+ssize_t
+rmextra(const char *path, struct hashmap *preserved)
+{
+	ssize_t removed = 0;
+	DIR *dir = opendir(path);
+	if (dir == NULL) return -1;
+
+	struct dirent *ent;
+	while ((ent = readdir(dir))) {
+		if (!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, "..")) {
+			continue;
+		}
+
+		if (hashmap_get(preserved, ent->d_name) != NULL) continue;
+
+		char target[PATH_MAX];
+		sprintf(target, "%s/%s", path, ent->d_name);
+		if (!rmentry(target)) {
+			closedir(dir);
+			return -1;
+		}
+		removed++;
+	}
+
+	closedir(dir);
+	return removed;
+}
+
+bool
+filesync(const char *restrict srcpath, const char *restrict dstpath,
+		struct hashmap *preserved)
 {
 	int fdsrc;
 	struct stat stsrc;
+	struct vector *own = NULL;
+	bool cleanup = false;
 
 	fdsrc = open(srcpath, O_RDONLY);
-	if (fdsrc < 0) return false;
-	if (fstat(fdsrc, &stsrc)) goto dir_error;
+	if (fdsrc < 0) {
+		log_printl_errno(LOG_ERROR, "Failed to open %s", srcpath);
+		return false;
+	}
+	if (fstat(fdsrc, &stsrc)) {
+		log_printl_errno(LOG_ERROR, "Failed to stat %s", srcpath);
+		goto dir_error;
+	}
 
 	if (S_ISDIR(stsrc.st_mode)) {
 		if (mkdir(dstpath, 0755)) {
-			if (errno != EEXIST) goto dir_error;
-			if (stat(dstpath, &stsrc)) goto dir_error;
+			if (errno != EEXIST) {
+				log_printl_errno(LOG_ERROR, "Failed to create directory %s",
+						dstpath);
+				goto dir_error;
+			}
+			if (stat(dstpath, &stsrc)) {
+				log_printl_errno(LOG_ERROR, "Failed to stat %s", dstpath);
+				goto dir_error;
+			}
 			if (!S_ISDIR(stsrc.st_mode)){
+				log_printl(LOG_ERROR, "%s is not a directory", dstpath);
 				errno = ENOTDIR;
 				goto dir_error;
 			}
+			/* We only need to cleanup if the dir already existed */
+			cleanup = true;
 		}
+
+		if (cleanup) {
+			if (preserved == NULL) {
+				preserved = hashmap_new();
+			} else {
+				own = vector_new(32);
+			}
+		}
+
 		DIR *dir = fdopendir(fdsrc);
-		if (dir == NULL) goto dir_error;
+		if (dir == NULL) {
+			log_printl_errno(LOG_ERROR, "Failed to open directory %s", dstpath);
+			goto dir_error;
+		}
+
 		struct dirent *ent;
 		while ((ent = readdir(dir))) {
 			if (!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, "..")) {
@@ -179,37 +285,71 @@ filesync(const char *restrict srcpath, const char *restrict dstpath)
 			char entsrc[PATH_MAX], entdst[PATH_MAX];
 			sprintf(entsrc, "%s/%s", srcpath, ent->d_name);
 			sprintf(entdst, "%s/%s", dstpath, ent->d_name);
-			if (filesync(entsrc, entdst)) {
+			if (cleanup) {
+				char *name = strdup(ent->d_name);
+				hashmap_insert(preserved, name, name);
+				if (own) {
+					vector_push(own, name);
+				}
+			}
+			if (!filesync(entsrc, entdst, NULL)) {
 				closedir(dir);
-				goto dir_error;
+				return false;
 			}
 		}
-		closedir(dir);
 
-		goto dir_success;
+		if (cleanup) {
+			rmextra(dstpath, preserved);
+			if (own) {
+				for (size_t i = 0; i < own->size; i++) {
+					free(own->values[i]);
+				}
+				vector_free(own);
+			} else {
+				hashmap_destroy(preserved, hm_destroy_callback);
+			}
+		}
+
+		closedir(dir);
+		return true;
 	}
 
 	int fddst, uptodate;
 	if ((uptodate = file_is_uptodate(dstpath, &stsrc.st_mtim)) > 0) {
-		goto dir_success;
+		goto success;
 	} else if (uptodate < 0) {
 		goto dir_error;
 	}
 	fddst = open(dstpath, O_CREAT | O_WRONLY | O_TRUNC, 0644);
-	if (fddst < 0) goto dir_error;
+	if (fddst < 0) {
+		log_printl_errno(LOG_ERROR, "Failed to open/create %s", dstpath);
+		goto dir_error;
+	}
 
 #ifdef __linux__
 	ssize_t nwrote = sendfile(fddst, fdsrc, NULL, stsrc.st_size);
-	if (nwrote != stsrc.st_size) goto copy_error;
+	if (nwrote != stsrc.st_size) {
+		log_printl_errno(LOG_ERROR, "Failed to copy %s (wrote %lu/%lu bytes)", 
+				dstpath, nwrote, stsrc.st_size);
+		goto copy_error;
+	}
 #else
 	char buf[BUFSIZE];
 	ssize_t nread;
 
 	while ((nread = read(fdsrc, buf, BUFSIZE)) > 0) {
 		ssize_t nwrote = write(fddst, buf, nread);
-		if (nread != nwrote) goto copy_error;
+		if (nread != nwrote) {
+			log_printl_errno(LOG_ERROR, "Failed to copy %s "
+					"(buffer wrote %lu/%lu bytes)", 
+					dstpath, nwrote, nread);
+			goto copy_error;
+		}
 	}
-	if (nread < 0) goto copy_error;
+	if (nread < 0) {
+		log_printl_errno(LOG_ERROR, "Failed to copy %s");
+		goto copy_error;
+	}
 #endif
 
 	struct timespec tms[] = {
@@ -221,7 +361,7 @@ filesync(const char *restrict srcpath, const char *restrict dstpath)
 	log_printl(LOG_DETAIL, "Copied %s", srcpath);
 
 	close(fddst);
-dir_success:
+success:
 	close(fdsrc);
 	return true;
 copy_error:

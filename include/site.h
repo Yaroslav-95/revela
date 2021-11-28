@@ -12,7 +12,6 @@
 #define SITE_DEFAULT_RESOURCES "/usr/share/revela"
 #endif
 
-#define CSSDIR "css"
 #define STATICDIR "static"
 #define CONTENTDIR "content"
 #define TEMPLATESDIR "templates"
@@ -31,6 +30,8 @@ struct site {
 	 */
 	size_t rel_content_dir;
 	struct bstree *albums;
+	/* Files/dirs that belong to albums and which shouldn't be deleted */
+	struct hashmap *album_dirs;
 	struct render render;
 	bool dry_run;
 };

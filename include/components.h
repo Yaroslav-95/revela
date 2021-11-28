@@ -57,11 +57,14 @@ struct album {
 	/* The date of the album is the date of the earliest image */
 	time_t tstamp;
 	struct bstree *images;
+	/* Files/dirs that belong to images and which shouldn't be deleted */
+	struct hashmap *preserved;
 	/* Hashmap with values to be passed to the template */
 	struct hashmap *map;
 	/* Vector with hashmaps of images to be passed to the templates */
 	struct vector *thumbs;
 	struct vector *previews;
+	size_t images_updated;
 };
 
 struct image *image_new(char *src, const struct stat *, struct album *);

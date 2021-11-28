@@ -19,6 +19,7 @@ struct render {
 	struct hashmap *common_vars;
 	/* Modification time for the templates dir */
 	struct timespec modtime;
+	size_t albums_updated;
 	bool dry_run;
 };
 
@@ -29,6 +30,8 @@ bool render_make_album(struct render *r, const char *path,
 
 bool render_make_image(struct render *r, const char *path,
 		const struct image *image);
+
+bool render_set_album_vars(struct render *, struct album *);
 
 bool render_init(struct render *, const char *path, struct site_config *,
 		struct bstree *albums);
