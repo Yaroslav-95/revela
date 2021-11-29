@@ -107,13 +107,13 @@ bstree_min(struct bstnode *node)
 struct bstnode *
 bstree_successor(struct bstnode *na)
 {
-	bstree_xcessor(na, right, max);
+	bstree_xcessor(na, right, min);
 }
 
 struct bstnode *
 bstree_predecessor(struct bstnode *na)
 {
-	bstree_xcessor(na, left, min);
+	bstree_xcessor(na, left, max);
 }
 
 bool
@@ -124,7 +124,7 @@ bstree_inorder_walk(struct bstnode *node, bst_walk_cb cb, void *data)
 	}
 	if (!cb(node, data)) return false;
 	if (node->right != NULL) {
-		if (!bstree_inorder_walk(node->right, cb, data)) return false;
+		return bstree_inorder_walk(node->right, cb, data);
 	}
 	return true;
 }
