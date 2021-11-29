@@ -72,7 +72,7 @@ static void
 image_date_from_stat(struct image *image, const struct stat *pstat, 
 		struct tm *date)
 {
-	image->tstamp = pstat->st_ctim.tv_sec;
+	image->tstamp = pstat->st_mtim.tv_sec;
 	localtime_r(&image->tstamp, date);
 }
 
@@ -123,6 +123,18 @@ out:
 }
 
 struct image *
+image_old(struct stat *istat)
+{
+	struct image *image = calloc(1, sizeof *image);
+	if (image == NULL) {
+		log_printl_errno(LOG_FATAL, "Memory allocation error");
+		return NULL;
+	}
+	image->tstamp = istat->st_mtim.tv_sec;
+	return image;
+}
+
+struct image *
 image_new(char *src, const struct stat *pstat, struct album *album)
 {
 	struct image *image = calloc(1, sizeof *image);
@@ -159,6 +171,7 @@ image_new(char *src, const struct stat *pstat, struct album *album)
 	image_set_date(image, pstat);
 	image->map = hashmap_new_with_cap(8);
 	image->thumb = hashmap_new_with_cap(4);
+	image->modified = false;
 
 	return image;
 }
@@ -180,13 +193,15 @@ image_destroy(void *data)
 	if (image->exif_data) {
 		exif_data_unref(image->exif_data);
 	}
-	hashmap_free(image->map);
-	hashmap_free(image->thumb);
+	if (image->map) {
+		hashmap_free(image->map);
+		hashmap_free(image->thumb);
+	}
 	free(image);
 }
 
 struct album *
-album_new(struct album_config *conf, struct site_config *sconf, const char *src, 
+album_new(struct album_config *conf, struct site *site, const char *src,
 		const char *rsrc, const struct stat *dstat)
 {
 	struct album *album = calloc(1, sizeof *album);
@@ -194,15 +209,16 @@ album_new(struct album_config *conf, struct site_config *sconf, const char *src,
 		log_printl_errno(LOG_FATAL, "Memory allocation error");
 		return NULL;
 	}
+	album->site = site;
 	album->config = conf;
 	album->source = strdup(src);
-	album->slug = slugify(rsrc, sconf->base_url, &album->url);
+	album->slug = slugify(rsrc, site->config->base_url, &album->url);
 	album->images = bstree_new(image_cmp, image_destroy);
 	album->tstamp = MAXTIME;
-	album->image_dirs = hashmap_new();
+	album->preserved = hashmap_new();
 	album->map = hashmap_new_with_cap(16);
 	album->thumbs = vector_new(128);
-	album->previews = vector_new(sconf->max_previews);
+	album->previews = vector_new(site->config->max_previews);
 
 	return album;
 }
@@ -242,7 +258,7 @@ album_destroy(void *data)
 	free(album->source);
 	free(album->url);
 	bstree_destroy(album->images);
-	hashmap_free(album->image_dirs);
+	hashmap_free(album->preserved);
 	hashmap_free(album->map);
 	vector_free(album->thumbs);
 	vector_free(album->previews);

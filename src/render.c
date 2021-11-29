@@ -107,6 +107,12 @@ render_set_album_vars(struct render *r, struct album *album)
 	years_push_album(r->years, album);
 	vector_push(r->albums, album->map);
 
+	/*
+	 * The common vars for the images in this album; used by both the album
+	 * template and the image template.
+	 */
+	hashmap_insert(r->common_vars, "album", album->map);
+
 	return true;
 }
 
@@ -127,24 +133,19 @@ render(struct env *env, const char *tmpl, const char *opath,
 	return ok;
 }
 
-#define RENDER_MAKE_START \
-	bool ok = true; \
-	int isupdate = file_is_uptodate(path, &r->modtime); \
-	if (isupdate == -1) return false; \
-	if (isupdate == 1) return true; \
-	log_print(LOG_INFO, "Rendering %s...", path); \
-	if (r->dry_run) goto done
-
-#define RENDER_MAKE_END \
-	setdatetime(path, &r->modtime); \
-done: \
-	log_printf(LOG_INFO, " done.\n"); \
-	return ok
-
 bool
 render_make_index(struct render *r, const char *path)
 {
-	RENDER_MAKE_START;
+	bool ok = true;
+	if (r->albums_updated == 0) {
+		int isupdate = file_is_uptodate(path, &r->modtime);
+		if (isupdate == -1) return false;
+		if (isupdate == 1) return true;
+	}
+
+	log_printl(LOG_INFO, "Rendering %s", path);
+
+	if (r->dry_run) goto done;
 
 	hashmap_insert(r->common_vars, "years", r->years);
 	hashmap_insert(r->common_vars, "albums", r->years);
@@ -152,35 +153,48 @@ render_make_index(struct render *r, const char *path)
 	hashmap_remove(r->common_vars, "years");
 	hashmap_remove(r->common_vars, "albums");
 
-	RENDER_MAKE_END;
+	setdatetime(path, &r->modtime);
+done:
+	return ok;
 }
 
 bool
 render_make_album(struct render *r, const char *path, const struct album *album)
 {
-	if (!r->dry_run) hashmap_insert(r->common_vars, "album", album->map);
+	bool ok = true;
+	if (album->images_updated == 0) {
+		int isupdate = file_is_uptodate(path, &r->modtime);
+		if (isupdate == -1) return false;
+		if (isupdate == 1) return true;
+	}
 
-	RENDER_MAKE_START;
+	log_printl(LOG_INFO, "Rendering %s", path);
+
+	if (r->dry_run) goto done;
 
 	ok = render(r->env, "album.html", path, r->common_vars);
-	/* 
-	 * Since we actually still want this album's map for the image inside the
-	 * album, we don't remove it.
-	 */
 
-	RENDER_MAKE_END;
+	setdatetime(path, &r->modtime);
+done:
+	return ok;
 }
 
 bool
 render_make_image(struct render *r, const char *path, const struct image *image)
 {
-	RENDER_MAKE_START;
+	bool ok = true;
+
+	log_printl(LOG_INFO, "Rendering %s", path);
+
+	if (r->dry_run) goto done;
 
 	hashmap_insert(r->common_vars, "image", image->map);
 	ok = render(r->env, "image.html", path, r->common_vars);
 	hashmap_remove(r->common_vars, "image");
 
-	RENDER_MAKE_END;
+	setdatetime(path, &r->modtime);
+done:
+	return ok;
 }
 
 bool

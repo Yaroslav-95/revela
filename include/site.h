@@ -34,6 +34,7 @@ struct site {
 	struct hashmap *album_dirs;
 	struct render render;
 	bool dry_run;
+	size_t albums_updated;
 };
 
 bool site_build(struct site *);

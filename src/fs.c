@@ -157,7 +157,7 @@ setdatetime(const char *path, const struct timespec *mtim)
 }
 
 bool
-rmentry(const char *path)
+rmentry(const char *path, bool dry)
 {
 	struct stat st;
 	if (stat(path, &st)) {
@@ -175,21 +175,23 @@ rmentry(const char *path)
 
 			char target[PATH_MAX];
 			sprintf(target, "%s/%s", path, ent->d_name);
-			if (!rmentry(target)) {
+			if (!rmentry(target, dry)) {
 				closedir(dir);
 				return false;
 			}
 		}
 
 		closedir(dir);
+		if (dry) goto success;
 		if (rmdir(path)) goto error;
 		goto success;
 	}
 
+	if (dry) goto success;
 	if (unlink(path)) goto error;
 
 success:
-	log_printl(LOG_DETAIL, "Deleted %s", path);
+	log_printl(LOG_DETAIL, "Deleting %s", path);
 	return true;
 error:
 	log_printl_errno(LOG_ERROR, "Can't delete %s", path);
@@ -197,7 +199,8 @@ error:
 }
 
 ssize_t
-rmextra(const char *path, struct hashmap *preserved)
+rmextra(const char *path, struct hashmap *preserved, preremove_fn cb,
+		void *data, bool dry)
 {
 	ssize_t removed = 0;
 	DIR *dir = opendir(path);
@@ -213,7 +216,10 @@ rmextra(const char *path, struct hashmap *preserved)
 
 		char target[PATH_MAX];
 		sprintf(target, "%s/%s", path, ent->d_name);
-		if (!rmentry(target)) {
+		if (cb != NULL) {
+			if (!cb(target, data)) return -1;
+		}
+		if (!rmentry(target, dry)) {
 			closedir(dir);
 			return -1;
 		}
@@ -226,7 +232,7 @@ rmextra(const char *path, struct hashmap *preserved)
 
 bool
 filesync(const char *restrict srcpath, const char *restrict dstpath,
-		struct hashmap *preserved)
+		struct hashmap *preserved, bool dry)
 {
 	int fdsrc;
 	struct stat stsrc;
@@ -235,23 +241,23 @@ filesync(const char *restrict srcpath, const char *restrict dstpath,
 
 	fdsrc = open(srcpath, O_RDONLY);
 	if (fdsrc < 0) {
-		log_printl_errno(LOG_ERROR, "Failed to open %s", srcpath);
+		log_printl_errno(LOG_ERROR, "Couldn't open %s", srcpath);
 		return false;
 	}
 	if (fstat(fdsrc, &stsrc)) {
-		log_printl_errno(LOG_ERROR, "Failed to stat %s", srcpath);
+		log_printl_errno(LOG_ERROR, "Couldn't stat %s", srcpath);
 		goto dir_error;
 	}
 
 	if (S_ISDIR(stsrc.st_mode)) {
 		if (mkdir(dstpath, 0755)) {
 			if (errno != EEXIST) {
-				log_printl_errno(LOG_ERROR, "Failed to create directory %s",
+				log_printl_errno(LOG_ERROR, "Couldn't create directory %s",
 						dstpath);
 				goto dir_error;
 			}
 			if (stat(dstpath, &stsrc)) {
-				log_printl_errno(LOG_ERROR, "Failed to stat %s", dstpath);
+				log_printl_errno(LOG_ERROR, "Couldn't stat %s", dstpath);
 				goto dir_error;
 			}
 			if (!S_ISDIR(stsrc.st_mode)){
@@ -292,14 +298,14 @@ filesync(const char *restrict srcpath, const char *restrict dstpath,
 					vector_push(own, name);
 				}
 			}
-			if (!filesync(entsrc, entdst, NULL)) {
+			if (!filesync(entsrc, entdst, NULL, dry)) {
 				closedir(dir);
 				return false;
 			}
 		}
 
 		if (cleanup) {
-			rmextra(dstpath, preserved);
+			rmextra(dstpath, preserved, NULL, NULL, dry);
 			if (own) {
 				for (size_t i = 0; i < own->size; i++) {
 					free(own->values[i]);
@@ -320,6 +326,11 @@ filesync(const char *restrict srcpath, const char *restrict dstpath,
 	} else if (uptodate < 0) {
 		goto dir_error;
 	}
+
+	log_printl(LOG_DETAIL, "Copying %s", srcpath);
+
+	if (dry) goto success;
+
 	fddst = open(dstpath, O_CREAT | O_WRONLY | O_TRUNC, 0644);
 	if (fddst < 0) {
 		log_printl_errno(LOG_ERROR, "Failed to open/create %s", dstpath);
@@ -357,8 +368,6 @@ filesync(const char *restrict srcpath, const char *restrict dstpath,
 		{ .tv_sec = stsrc.st_mtim.tv_sec, .tv_nsec = stsrc.st_mtim.tv_nsec },
 	};
 	futimens(fddst, tms);
-
-	log_printl(LOG_DETAIL, "Copied %s", srcpath);
 
 	close(fddst);
 success:

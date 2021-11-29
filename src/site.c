@@ -9,14 +9,60 @@
 #include "fs.h"
 #include "log.h"
 #include "hashmap.h"
-#include "render.h"
 
-/* TODO: Probably shouldn't use PATH_MAX, but i'll leave it for now */
 /* TODO: handle error cases for paths that are too long */
 
 #define THUMB_SUFFIX "_thumb"
 
 static const char *index_html = "index.html";
+
+/*
+ * Checks where the removed image used to be based on the modification time of
+ * the image dir and updates the html of the images between which it used to be,
+ * if they haven't been updated yet.
+ */
+static bool
+prerm_imagedir(const char *path, void *data)
+{
+	struct stat st;
+	struct album *album = data;
+	char htmlpath[PATH_MAX];
+
+	if (stat(path, &st)) {
+		log_printl_errno(LOG_ERROR, "Couldn't stat %s", path);
+		return false;
+	}
+	if (S_ISDIR(st.st_mode)) {
+		struct image *old = image_old(&st);
+		struct bstnode *imnode = bstree_add(album->images, old),
+					   *prev = bstree_predecessor(imnode),
+					   *next = bstree_successor(imnode);
+		if (prev) {
+			struct image *imprev = (struct image *)prev->value;
+			if (!imprev->modified) {
+				joinpathb(htmlpath, imprev->dst, index_html);
+				if (!render_make_image(&album->site->render, htmlpath, imprev)) {
+					goto fail;
+				}
+			}
+		}
+		if (next) {
+			struct image *imnext = (struct image *)next->value;
+			if (!imnext->modified) {
+				joinpathb(htmlpath, imnext->dst, index_html);
+				if (!render_make_image(&album->site->render, htmlpath, imnext)) {
+					goto fail;
+				}
+			}
+		}
+		bstree_remove(album->images, imnode);
+		return true;
+fail:
+		bstree_remove(album->images, imnode);
+		return false;
+	}
+	return true;
+}
 
 static bool
 wand_passfail(MagickWand *wand, MagickPassFail status)
@@ -44,7 +90,7 @@ optimize_image(MagickWand *wand, const char *dst,
 	if (update == -1) return false;
 	if (update == 1) return true;
 
-	log_print(LOG_DETAIL, "Converting %s...", dst);
+	log_printl(LOG_DETAIL, "Converting %s", dst);
 	if (dry) goto out;
 
 	unsigned long nx = conf->max_width, ny = conf->max_height;
@@ -60,18 +106,17 @@ optimize_image(MagickWand *wand, const char *dst,
 		if (conf->smart_resize) {
 			double ratio = (double)x / y;
 			if (x > y) {
-				ny = ny / ratio;
+				ny = nx / ratio;
 			} else {
-				nx = nx * ratio;
+				nx = ny * ratio;
 			}
 		}
-		TRYWAND(wand, MagickResizeImage(wand, nx, ny, LanczosFilter, 0));
+		TRYWAND(wand, MagickResizeImage(wand, nx, ny, GaussianFilter, 0));
 	}
 	TRYWAND(wand, MagickWriteImage(wand, dst));
 	setdatetime(dst, srcmtim);
 
 out:
-	log_printf(LOG_DETAIL, " done.\n");
 	return true;
 magick_fail:
 	return false;
@@ -83,6 +128,7 @@ images_walk(struct bstnode *node, void *data)
 	struct site *site = data;
 	struct image *image = node->value;
 	struct stat dstat;
+	struct timespec ddate = { .tv_sec = image->tstamp, .tv_nsec = 0 };
 	char htmlpath[PATH_MAX];
 	const char *base = rbasename(image->dst);
 
@@ -108,7 +154,54 @@ images_walk(struct bstnode *node, void *data)
 
 	joinpathb(htmlpath, image->dst, index_html);
 	hashmap_insert(image->album->preserved, base, (char *)base);
-	return render_make_image(&site->render, htmlpath, image);
+
+	int isupdate = file_is_uptodate(htmlpath, &site->render.modtime);
+	if (isupdate == -1) return false;
+	if (isupdate == 0) {
+		if (!render_make_image(&site->render, htmlpath, image)) {
+			return false;
+		}
+		image->modified = true;
+		image->album->images_updated++;
+		/* Check if previous image wasn't updated, if so, render it */
+		struct bstnode *prev = bstree_predecessor(node);
+		if (prev) {
+			struct image *iprev = prev->value;
+			if (!iprev->modified) {
+				joinpathb(htmlpath, iprev->dst, index_html);
+				if (!render_make_image(&site->render, htmlpath, iprev)) {
+					return false;
+				}
+				goto success;
+			}
+		}
+
+		goto success;
+	}
+
+	/*
+	 * Render anyway if next image doesn't exist yet in directory or if previous
+	 * image was updated.
+	 */
+	struct bstnode *next = bstree_successor(node), *prev = NULL;
+	if (next) {
+		struct image *inext = next->value;
+		if (access(inext->dst, F_OK) != 0) {
+			image->album->images_updated++;
+			return render_make_image(&site->render, htmlpath, image);
+		}
+	}
+	if ((prev = bstree_predecessor(node)) != NULL) {
+		struct image *iprev = prev->value;
+		if (iprev->modified) {
+			image->album->images_updated++;
+			return render_make_image(&site->render, htmlpath, image);
+		}
+	}
+
+success:
+	setdatetime(image->dst, &ddate);
+	return true;
 magick_fail:
 	return false;
 }
@@ -124,11 +217,8 @@ albums_walk(struct bstnode *node, void *data)
 	if (!site->dry_run) {
 		hashmap_insert(site->album_dirs, album->slug, (char *)album->slug);
 		if (!render_set_album_vars(&site->render, album)) return false;
-	}
 
-	char htmlpath[PATH_MAX];
-	joinpathb(htmlpath, album->slug, index_html);
-	if (!render_make_album(&site->render, htmlpath, album)) return false;
+	}
 
 	log_printl(LOG_DEBUG, "Album: %s, datetime %s", album->slug, album->datestr);
 	if (!bstree_inorder_walk(album->images->root, images_walk, site)) {
@@ -136,10 +226,22 @@ albums_walk(struct bstnode *node, void *data)
 	}
 
 	hashmap_insert(album->preserved, index_html, (char *)index_html);
-	if (rmextra(album->slug, album->preserved) < 0) {
+	ssize_t deleted = rmextra(album->slug, album->preserved, prerm_imagedir,
+			album, site->dry_run);
+	if (deleted < 0) {
 		log_printl_errno(LOG_ERROR, 
 					"Something happened while deleting extraneous files");
+	} else {
+		album->images_updated += deleted;
 	}
+	if (album->images_updated > 0) {
+		site->render.albums_updated++;
+	}
+
+	char htmlpath[PATH_MAX];
+	joinpathb(htmlpath, album->slug, index_html);
+	if (!render_make_album(&site->render, htmlpath, album)) return false;
+
 
 	return true;
 }
@@ -163,7 +265,7 @@ traverse(struct site *site, const char *path, struct stat *dstat)
 	}
 	struct dirent *ent;
 	struct album_config *album_conf = calloc(1, sizeof *album_conf);
-	struct album *album = album_new(album_conf, site->config, path, 
+	struct album *album = album_new(album_conf, site, path,
 			path + site->rel_content_dir, dstat);
 	if (album == NULL) {
 		closedir(dir);
@@ -240,12 +342,13 @@ site_build(struct site *site)
 			log_printl_errno(LOG_FATAL, "Couldn't read static dir");
 			return false;
 		}
-		if (rmextra(site->output_dir, site->album_dirs) < 0) {
+		if (rmextra(site->output_dir, site->album_dirs, NULL, NULL,
+					site->dry_run) < 0) {
 			log_printl_errno(LOG_ERROR,
 					"Something happened while deleting extraneous files");
 		}
-	} else if (!site->dry_run 
-			&& !filesync(staticp, site->output_dir, site->album_dirs)) {
+	} else if (!filesync(staticp, site->output_dir, site->album_dirs,
+				site->dry_run)) {
 		log_printl(LOG_FATAL, "Can't copy static files");
 		return false;
 	}

@@ -6,6 +6,8 @@
 
 #include "hashmap.h"
 
+typedef bool (*preremove_fn)(const char *path, void *data);
+
 enum nmkdir_res {
 	NMKDIR_ERROR,
 	NMKDIR_NOOP,
@@ -49,7 +51,7 @@ int file_is_uptodate(const char *path, const struct timespec *srcmtim);
  */
 void setdatetime(const char *path, const struct timespec *mtim);
 
-bool rmentry(const char *path);
+bool rmentry(const char *path, bool dry);
 
 /* 
  * Recursively deletes extaneous files from directory, keeping files in the
@@ -57,7 +59,8 @@ bool rmentry(const char *path);
  * The number is not the total number of files on all subdirectories, but only
  * the number of files/dirs deleted from the directory pointed by path.
  */
-ssize_t rmextra(const char *path, struct hashmap *preserved);
+ssize_t rmextra(const char *path, struct hashmap *preserved, preremove_fn,
+		void *data, bool dry);
 
 /* 
  * Copies file(s) truncating and overwritting the file(s) in the destination
@@ -67,6 +70,6 @@ ssize_t rmextra(const char *path, struct hashmap *preserved);
  * timestamps do not match.
  */
 bool filesync(const char *restrict srcpath, const char *restrict dstpath,
-		struct hashmap *preserved);
+		struct hashmap *preserved, bool dry);
 
 #endif

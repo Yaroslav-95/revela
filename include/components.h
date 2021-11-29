@@ -40,9 +40,11 @@ struct image {
 	struct hashmap *map;
 	/* Hashmap with values to be passed to thumbs and previews vectors */
 	struct hashmap *thumb;
+	bool modified;
 };
 
 struct album {
+	struct site *site;
 	struct album_config *config;
 	/* The path to the source directory */
 	char *source;
@@ -69,11 +71,13 @@ struct album {
 
 struct image *image_new(char *src, const struct stat *, struct album *);
 
+struct image *image_old(struct stat *istat);
+
 int image_cmp(const void *a, const void *b);
 
 void image_destroy(void *data);
 
-struct album *album_new(struct album_config *, struct site_config *,
+struct album *album_new(struct album_config *, struct site *,
 		const char *src, const char *rsrc, const struct stat *);
 
 int album_cmp(const void *a, const void *b);
