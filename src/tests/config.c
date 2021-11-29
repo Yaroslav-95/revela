@@ -1,8 +1,9 @@
 #include <string.h>
+#include <math.h>
 
-#include "tests/tests.h"
-#include "config.h"
 #include "log.h"
+#include "config.h"
+#include "tests/tests.h"
 
 #define TESTS_DIR "tests"
 #define TEST_ALBUM "tests/album.ini"
@@ -20,11 +21,13 @@ test_site_config_read_ini(void)
 	asserteq(config->images.max_width, 3000);
 	asserteq(config->images.max_height, 2000);
 	asserteq(config->images.smart_resize, true);
+	asserteq(fabs(config->images.blur - 0.0) < 0.0001, true);
 	asserteq(config->thumbnails.strip, true);
 	asserteq(config->thumbnails.quality, 75);
 	asserteq(config->thumbnails.max_width, 400);
 	asserteq(config->thumbnails.max_height, 270);
 	asserteq(config->thumbnails.smart_resize, true);
+	asserteq(fabs(config->thumbnails.blur - 0.1) < 0.0001, true);
 	site_config_destroy(config);
 }
 

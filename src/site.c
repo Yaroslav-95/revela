@@ -111,7 +111,8 @@ optimize_image(MagickWand *wand, const char *dst,
 				nx = ny * ratio;
 			}
 		}
-		TRYWAND(wand, MagickResizeImage(wand, nx, ny, GaussianFilter, 0));
+		TRYWAND(wand, MagickResizeImage(wand, nx, ny, GaussianFilter,
+					conf->blur));
 	}
 	TRYWAND(wand, MagickWriteImage(wand, dst));
 	setdatetime(dst, srcmtim);
@@ -214,8 +215,8 @@ albums_walk(struct bstnode *node, void *data)
 	struct stat dstat;
 	if (!nmkdir(album->slug, &dstat, site->dry_run)) return false;
 
+	hashmap_insert(site->album_dirs, album->slug, (char *)album->slug);
 	if (!site->dry_run) {
-		hashmap_insert(site->album_dirs, album->slug, (char *)album->slug);
 		if (!render_set_album_vars(&site->render, album)) return false;
 
 	}
@@ -390,9 +391,7 @@ site_init(struct site *site)
 	site->rel_content_dir = strlen(site->root_dir) + 1;
 	InitializeMagick(NULL);
 	site->wand = NewMagickWand();
-	if (!site->dry_run) {
-		site->album_dirs = hashmap_new();
-	}
+	site->album_dirs = hashmap_new();
 	site->render.dry_run = site->dry_run;
 
 	return true;

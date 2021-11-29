@@ -4,7 +4,7 @@ A static web image gallery generator. It optimizes images for the web and
 generates HTML files to create a photo/image gallery web site ready to be served
 by an HTML server.
 
-Early stages. It's functional but a little rough around the edges.
+Alpha stages. It's functional but a little rough around the edges.
 
 ## Building
 

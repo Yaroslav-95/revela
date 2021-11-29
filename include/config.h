@@ -13,6 +13,7 @@ struct image_config {
 	size_t max_width;
 	size_t max_height;
 	bool smart_resize;
+	double blur;
 };
 
 struct site_config {

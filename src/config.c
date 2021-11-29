@@ -75,6 +75,18 @@ site_config_images_keyvalue_handler(struct parcini_line *parsed,
 		res = parcini_value_handle(&parsed->value, PARCINI_VALUE_BOOLEAN,
 				&iconfig->smart_resize) ? CONFIG_KEY_OK : CONFIG_KEY_BADVALUE;
 	}
+	if (!strcmp(parsed->key, "blur")) {
+		long int temp;
+		res = parcini_value_handle(&parsed->value, PARCINI_VALUE_INTEGER,
+				&temp) ? CONFIG_KEY_OK : CONFIG_KEY_BADVALUE;
+		if (res == CONFIG_KEY_OK) {
+			if (temp < -100 || temp > 100) {
+				res = CONFIG_KEY_BADVALUE;
+			} else {
+				iconfig->blur = (double)temp/100;
+			}
+		}
+	}
 
 	return res;
 }
@@ -227,6 +239,7 @@ site_config_init(void)
 			.max_width = 3000,
 			.max_height = 2000,
 			.smart_resize = true,
+			.blur = 0,
 		};
 		config->thumbnails = (struct image_config) {
 			.strip = true,
@@ -234,6 +247,7 @@ site_config_init(void)
 			.max_width = 400,
 			.max_height = 270,
 			.smart_resize = true,
+			.blur = 0.25,
 		};
 	}
 
