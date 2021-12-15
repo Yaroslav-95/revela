@@ -227,11 +227,7 @@ render_init(struct render *r, const char *root, struct site_config *conf,
 
 	r->common_vars = hashmap_new_with_cap(16);
 	hashmap_insert(r->common_vars, "title", conf->title);
-	if (strlen(conf->base_url) == 0) {
-		hashmap_insert(r->common_vars, "index", "/");
-	} else {
-		hashmap_insert(r->common_vars, "index", conf->base_url);
-	}
+	hashmap_insert(r->common_vars, "index", conf->base_url);
 
 	//bstree_inorder_walk(albums->root, albums_walk, (void *)r);
 

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="header-container">
+	<h1>{{ title }}</h1>
+</div>
+<div class="gallery-container">
+	<p>
+	Jump to year: 
+	{% for year in years %}
+	<a href="#{{ year.name }}">{{ year.name }}</a>
+	{% endfor %}
+	</p>
+	{% for year in years %}
+	<h2 id="{{ year.name }}">{{ year.name }}</h2>
+	{% for album in year.albums %}
+	{% if album.title %}
+	<a href="{{ album.link }}"><h3>{{ album.title }}</h3></a>
+	{% else %}
+	<a href="{{ album.link }}"><h3>Untitled</h3></a>
+	{% endif %}
+	<div class="album-container">
+		{% for thumb in album.thumbs %}
+			{% if loop.index < 4 %}
+			<a href="{{ thumb.link }}">
+				<img class="thumbnail" src="{{ thumb.source }}">
+			</a>
+			{% endif %}
+		{% endfor %}
+	</div>
+	{% endfor %}
+	{% endfor %}
+</div>
+{% endblock %}

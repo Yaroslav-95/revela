@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="image-container">
+	<a href="{{ image.source }}"><img class="full" src="{{ image.source }}"></a>
+	<div class="controls-container">
+		{% if image.prev %}
+		<a class="control-btn" href="{{ image.prev }}">⮜ Previous</a>
+		{% else %}
+		<a class="control-btn hidden" href="#">⮜ Previous</a>
+		{% endif %}
+		{% if image.next %}
+		<a class="control-btn" href="{{ image.next }}">Next ⮞</a>
+		{% else %}
+		<a class="control-btn hidden" href="#">Next ⮞</a>
+		{% endif %}
+	</div>
+</div>
+<div class="gallery-container">
+	<h3>
+		From <a href="{{ index }}/#{{ album.year }}">{{ album.year }}</a>  
+		{% if album.title %}
+		<a href="{{ album.link }}">{{ album.title }}</a>
+		{% else %}
+		<a href="{{ album.link }}">Untitled</a>
+		{% endif %}
+		in <a href="{{ index }}/">{{ title }}</a>
+	</h3>
+	<p>Taken {{ image.date }}</p>
+</div>
+{% endblock %}
+

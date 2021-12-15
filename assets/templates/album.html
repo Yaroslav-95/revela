@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="header-container">
+	<h1>
+	<a href="{{ index }}/#{{ album.year }}">{{ album.year }}</a> 
+	{% if album.title %}
+	{{ album.title }} 
+	{% else %}
+	Untitled 
+	{% endif %}
+	</h1>
+	<p>from <a href="{{ index }}/">{{ title }}</a> </p>
+</div>
+<div class="gallery-container">
+	<p>{{ album.desc }}</p>
+	<div class="album-container">
+		{% for thumb in album.thumbs %}
+		<a href="{{ thumb.link }}">
+			<img class="thumbnail" src="{{ thumb.source }}">
+		</a>
+		{% endfor %}
+	</div>
+</div>
+{% endblock %}
