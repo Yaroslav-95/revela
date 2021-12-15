@@ -14,9 +14,6 @@
 #define MAXTIME \
 	((unsigned long long)1 << ((sizeof(time_t) * CHAR_BIT) - 1)) - 1
 
-#define TSTAMP_CMP(T, a, b) \
-	(((T *)a)->tstamp > ((T *)b)->tstamp) - (((T *)a)->tstamp < ((T *)b)->tstamp)
-
 /*
  * Reverses the order of the parent directories, changes '/' and spaces to '-',
  * lowers the case of letters. E.g. "2019/Spain/Santiago de Compostela" ->
@@ -179,7 +176,9 @@ image_new(char *src, const struct stat *pstat, struct album *album)
 int
 image_cmp(const void *a, const void *b)
 {
-	return TSTAMP_CMP(struct image, a, b);
+	/* Compare in ascending order */
+	return (((struct image *)a)->tstamp > ((struct image *)b)->tstamp)
+		- (((struct image *)a)->tstamp < ((struct image *)b)->tstamp);
 }
 
 void
@@ -226,7 +225,10 @@ album_new(struct album_config *conf, struct site *site, const char *src,
 int
 album_cmp(const void *a, const void *b)
 {
-	return TSTAMP_CMP(struct album, a, b);
+	/* Compare in descending order */
+	return (((struct album *)a)->tstamp < ((struct album *)b)->tstamp)
+		- (((struct album *)a)->tstamp > ((struct album *)b)->tstamp);
+
 }
 
 void
