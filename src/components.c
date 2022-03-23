@@ -10,6 +10,7 @@
 #include "fs.h"
 #include "log.h"
 #include "site.h"
+#include "roscha.h"
 
 #define MAXTIME \
 	((unsigned long long)1 << ((sizeof(time_t) * CHAR_BIT) - 1)) - 1
@@ -166,8 +167,8 @@ image_new(char *src, const struct stat *pstat, struct album *album)
 	image->exif_data = exif_data_new_from_file(image->source);
 	image->modtime = pstat->st_mtim;
 	image_set_date(image, pstat);
-	image->map = hashmap_new_with_cap(8);
-	image->thumb = hashmap_new_with_cap(4);
+	image->map = roscha_object_new(hmap_new_with_cap(8));
+	image->thumb = roscha_object_new(hmap_new_with_cap(4));
 	image->modified = false;
 
 	return image;
@@ -193,8 +194,8 @@ image_destroy(void *data)
 		exif_data_unref(image->exif_data);
 	}
 	if (image->map) {
-		hashmap_free(image->map);
-		hashmap_free(image->thumb);
+		roscha_object_unref(image->map);
+		roscha_object_unref(image->thumb);
 	}
 	free(image);
 }
@@ -214,10 +215,9 @@ album_new(struct album_config *conf, struct site *site, const char *src,
 	album->slug = slugify(rsrc, site->config->base_url, &album->url);
 	album->images = bstree_new(image_cmp, image_destroy);
 	album->tstamp = MAXTIME;
-	album->preserved = hashmap_new();
-	album->map = hashmap_new_with_cap(16);
-	album->thumbs = vector_new(128);
-	album->previews = vector_new(site->config->max_previews);
+	album->preserved = hmap_new();
+	album->map = roscha_object_new(hmap_new());
+	album->thumbs = roscha_object_new(vector_new());
 
 	return album;
 }
@@ -260,9 +260,8 @@ album_destroy(void *data)
 	free(album->source);
 	free(album->url);
 	bstree_destroy(album->images);
-	hashmap_free(album->preserved);
-	hashmap_free(album->map);
-	vector_free(album->thumbs);
-	vector_free(album->previews);
+	hmap_free(album->preserved);
+	roscha_object_unref(album->map);
+	roscha_object_unref(album->thumbs);
 	free(album);
 }

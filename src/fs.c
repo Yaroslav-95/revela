@@ -2,7 +2,9 @@
 
 #include "log.h"
 #include "config.h"
+
 #include "vector.h"
+#include "slice.h"
 
 #include <fcntl.h>
 #include <stdio.h>
@@ -37,7 +39,7 @@ static const char *img_extensions[] = {
 };
 
 static void
-hm_destroy_callback(const void *k, void *v)
+hm_destroy_cb(const struct slice *k, void *v)
 {
 	free(v);
 }
@@ -199,7 +201,7 @@ error:
 }
 
 ssize_t
-rmextra(const char *path, struct hashmap *preserved, preremove_fn cb,
+rmextra(const char *path, struct hmap *preserved, preremove_fn cb,
 		void *data, bool dry)
 {
 	ssize_t removed = 0;
@@ -212,7 +214,7 @@ rmextra(const char *path, struct hashmap *preserved, preremove_fn cb,
 			continue;
 		}
 
-		if (hashmap_get(preserved, ent->d_name) != NULL) continue;
+		if (hmap_get(preserved, ent->d_name) != NULL) continue;
 
 		char target[PATH_MAX];
 		sprintf(target, "%s/%s", path, ent->d_name);
@@ -232,7 +234,7 @@ rmextra(const char *path, struct hashmap *preserved, preremove_fn cb,
 
 bool
 filesync(const char *restrict srcpath, const char *restrict dstpath,
-		struct hashmap *preserved, bool dry)
+		struct hmap *preserved, bool dry)
 {
 	int fdsrc;
 	struct stat stsrc;
@@ -271,9 +273,9 @@ filesync(const char *restrict srcpath, const char *restrict dstpath,
 
 		if (cleanup) {
 			if (preserved == NULL) {
-				preserved = hashmap_new();
+				preserved = hmap_new();
 			} else {
-				own = vector_new(32);
+				own = vector_new_with_cap(32);
 			}
 		}
 
@@ -293,7 +295,7 @@ filesync(const char *restrict srcpath, const char *restrict dstpath,
 			sprintf(entdst, "%s/%s", dstpath, ent->d_name);
 			if (cleanup) {
 				char *name = strdup(ent->d_name);
-				hashmap_insert(preserved, name, name);
+				hmap_set(preserved, name, name);
 				if (own) {
 					vector_push(own, name);
 				}
@@ -307,12 +309,12 @@ filesync(const char *restrict srcpath, const char *restrict dstpath,
 		if (cleanup) {
 			rmextra(dstpath, preserved, NULL, NULL, dry);
 			if (own) {
-				for (size_t i = 0; i < own->size; i++) {
+				for (size_t i = 0; i < own->len; i++) {
 					free(own->values[i]);
 				}
 				vector_free(own);
 			} else {
-				hashmap_destroy(preserved, hm_destroy_callback);
+				hmap_destroy(preserved, hm_destroy_cb);
 			}
 		}
 

@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <sys/stat.h>
 
-#include "hashmap.h"
+#include "hmap.h"
 
 typedef bool (*preremove_fn)(const char *path, void *data);
 
@@ -55,11 +55,11 @@ bool rmentry(const char *path, bool dry);
 
 /* 
  * Recursively deletes extaneous files from directory, keeping files in the
- * preserved hashmap. Returns -1 on error, number of deleted entries on success.
+ * preserved hmap. Returns -1 on error, number of deleted entries on success.
  * The number is not the total number of files on all subdirectories, but only
  * the number of files/dirs deleted from the directory pointed by path.
  */
-ssize_t rmextra(const char *path, struct hashmap *preserved, preremove_fn,
+ssize_t rmextra(const char *path, struct hmap *preserved, preremove_fn,
 		void *data, bool dry);
 
 /* 
@@ -70,6 +70,6 @@ ssize_t rmextra(const char *path, struct hashmap *preserved, preremove_fn,
  * timestamps do not match.
  */
 bool filesync(const char *restrict srcpath, const char *restrict dstpath,
-		struct hashmap *preserved, bool dry);
+		struct hmap *preserved, bool dry);
 
 #endif

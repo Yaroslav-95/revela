@@ -8,7 +8,7 @@
 
 #include "fs.h"
 #include "log.h"
-#include "hashmap.h"
+#include "hmap.h"
 
 /* TODO: handle error cases for paths that are too long */
 
@@ -154,7 +154,7 @@ images_walk(struct bstnode *node, void *data)
 	}
 
 	joinpathb(htmlpath, image->dst, index_html);
-	hashmap_insert(image->album->preserved, base, (char *)base);
+	hmap_set(image->album->preserved, base, (char *)base);
 
 	int isupdate = file_is_uptodate(htmlpath, &site->render.modtime);
 	if (isupdate == -1) return false;
@@ -215,7 +215,7 @@ albums_walk(struct bstnode *node, void *data)
 	struct stat dstat;
 	if (!nmkdir(album->slug, &dstat, site->dry_run)) return false;
 
-	hashmap_insert(site->album_dirs, album->slug, (char *)album->slug);
+	hmap_set(site->album_dirs, album->slug, (char *)album->slug);
 	if (!site->dry_run) {
 		if (!render_set_album_vars(&site->render, album)) return false;
 
@@ -226,7 +226,7 @@ albums_walk(struct bstnode *node, void *data)
 		return false;
 	}
 
-	hashmap_insert(album->preserved, index_html, (char *)index_html);
+	hmap_set(album->preserved, index_html, (char *)index_html);
 	ssize_t deleted = rmextra(album->slug, album->preserved, prerm_imagedir,
 			album, site->dry_run);
 	if (deleted < 0) {
@@ -321,6 +321,8 @@ site_build(struct site *site)
 {
 	struct stat dstat;
 	char staticp[PATH_MAX];
+	char startwd[PATH_MAX];
+	getcwd(startwd, PATH_MAX);
 
 	if (!nmkdir(site->output_dir, &dstat, false)) return false;
 
@@ -335,7 +337,7 @@ site_build(struct site *site)
 	}
 
 	if (!render_make_index(&site->render, index_html)) return false;
-	hashmap_insert(site->album_dirs, index_html, (char *)index_html);
+	hmap_set(site->album_dirs, index_html, (char *)index_html);
 
 	joinpathb(staticp, site->root_dir, STATICDIR);
 	if (stat(staticp, &dstat)) {
@@ -354,7 +356,7 @@ site_build(struct site *site)
 		return false;
 	}
 
-	chdir(site->root_dir);
+	chdir(startwd);
 	return true;
 }
 
@@ -391,8 +393,10 @@ site_init(struct site *site)
 	site->rel_content_dir = strlen(site->root_dir) + 1;
 	InitializeMagick(NULL);
 	site->wand = NewMagickWand();
-	site->album_dirs = hashmap_new();
+	site->album_dirs = hmap_new();
 	site->render.dry_run = site->dry_run;
+
+	roscha_init();
 
 	return true;
 }
@@ -409,7 +413,9 @@ site_deinit(struct site *site)
 		DestroyMagick();
 	}
 	if (!site->dry_run) {
-		hashmap_free(site->album_dirs);
+		hmap_free(site->album_dirs);
 		render_deinit(&site->render);
 	}
+
+	roscha_deinit();
 }

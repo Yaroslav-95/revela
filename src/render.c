@@ -7,121 +7,102 @@
 #include "log.h"
 #include "site.h"
 
+/* TODO: refactor to use roscha instead of unja */
+
 static bool
 images_walk(struct bstnode *node, void *data)
 {
 	struct image *image = node->value;
 
-	hashmap_insert(image->map, "source", image->url_image);
-	hashmap_insert(image->map, "date", image->datestr);
+	roscha_hmap_set_new(image->map, "source", (slice_whole(image->url_image)));
+	roscha_hmap_set_new(image->map, "date", (slice_whole(image->datestr)));
 	struct bstnode *prev = bstree_predecessor(node), 
 				   *next = bstree_successor(node);
 	char *url;
 	if (prev) {
 		url = ((struct image *)prev->value)->url;
-		hashmap_insert(image->map, "prev", url);
+		roscha_hmap_set_new(image->map, "prev", (slice_whole(url)));
 	}
 	if (next) {
 		url = ((struct image *)next->value)->url;
-		hashmap_insert(image->map, "next", url);
+		roscha_hmap_set_new(image->map, "next", (slice_whole(url)));
 	}
 
-	hashmap_insert(image->thumb, "link", image->url);
-	hashmap_insert(image->thumb, "source", image->url_thumb);
+	roscha_hmap_set_new(image->thumb, "link", (slice_whole(image->url)));
+	roscha_hmap_set_new(image->thumb, "source", (slice_whole(image->url_thumb)));
 
-	vector_push(image->album->thumbs, image->thumb);
+	roscha_vector_push(image->album->thumbs, image->thumb);
 
 	return true;
 }
 
-static struct hashmap *
-years_push_new_year(struct vector *years, char *yearstr)
+static struct roscha_object *
+years_push_new_year(struct roscha_object *years, char *yearstr)
 {
-	struct hashmap *year = hashmap_new_with_cap(4);
-	struct vector *albums = vector_new(8);
-	hashmap_insert(year, "name", yearstr);
-	hashmap_insert(year, "albums", albums);
-	vector_push(years, year);
+	struct roscha_object *year = roscha_object_new(hmap_new_with_cap(8));
+	struct roscha_object *albums = roscha_object_new(vector_new_with_cap(8));
+	roscha_hmap_set_new(year, "name", (slice_whole(yearstr)));
+	roscha_hmap_set(year, "albums", albums);
+	roscha_vector_push(years, year);
 
 	return year;
 }
 
 static void
-years_push_album(struct vector *years, struct album *album)
+years_push_album(struct roscha_object *years, struct album *album)
 {
-	struct hashmap *year;
-	struct vector *albums;
-	if (years->size == 0) {
+	struct roscha_object *year;
+	struct roscha_object *albums;
+	if (years->vector->len == 0) {
 		year = years_push_new_year(years, album->year);
 	} else {
-		year = years->values[years->size - 1];
-		char *yearstr = hashmap_get(year, "name");
-		if (strcmp(yearstr, album->year)) {
+		year = years->vector->values[years->vector->len - 1];
+		struct roscha_object *yearval = roscha_hmap_get(year, "name");
+		if (strcmp(yearval->slice.str, album->year)) {
 			year = years_push_new_year(years, album->year);
 		}
 	}
-	albums = hashmap_get(year, "albums");
-	vector_push(albums, album->map);
-}
-
-static void
-year_walk(const void *k, void *v)
-{
-	if (!strcmp(k, "albums")) {
-		struct vector *albums = v;
-		vector_free(albums);
-	}
-}
-
-static void
-years_destroy(struct vector *years)
-{
-	for (size_t i = 0; i < years->size; i++) {
-		struct hashmap *year = years->values[i];
-		hashmap_walk(year, year_walk);
-		hashmap_free(year);
-	}
-	vector_free(years);
+	albums = roscha_hmap_get(year, "albums");
+	roscha_vector_push(albums, album->map);
 }
 
 bool
 render_set_album_vars(struct render *r, struct album *album)
 {
 
-	hashmap_insert(album->map, "title", album->config->title);
-	hashmap_insert(album->map, "desc", album->config->desc);
-	hashmap_insert(album->map, "link", album->url);
-	hashmap_insert(album->map, "date", (char *)album->datestr);
-	hashmap_insert(album->map, "year", album->year);
+	if (album->config->title) {
+		roscha_hmap_set_new(album->map, "title",
+				(slice_whole(album->config->title)));
+	}
+	if (album->config->desc) {
+		roscha_hmap_set_new(album->map, "desc",
+				(slice_whole(album->config->desc)));
+	}
+	roscha_hmap_set_new(album->map, "link", (slice_whole(album->url)));
+	roscha_hmap_set_new(album->map, "date", (slice_whole(album->datestr)));
+	roscha_hmap_set_new(album->map, "year", (slice_whole(album->year)));
 
 	bstree_inorder_walk(album->images->root, images_walk, NULL);
 
-	for (uint32_t i = 0; 
-			i < album->thumbs->size && i < album->previews->cap; i++) {
-		vector_push(album->previews, album->thumbs->values[i]);
-	}
-
-	hashmap_insert(album->map, "thumbs", album->thumbs);
-	hashmap_insert(album->map, "previews", album->previews);
+	roscha_hmap_set(album->map, "thumbs", album->thumbs);
 
 	years_push_album(r->years, album);
-	vector_push(r->albums, album->map);
+	roscha_vector_push(r->albums, album->map);
 
 	/*
 	 * The common vars for the images in this album; used by both the album
 	 * template and the image template.
 	 */
-	hashmap_insert(r->common_vars, "album", album->map);
+	roscha_object_unref(roscha_hmap_set(r->env->vars, "album", album->map));
 
 	return true;
 }
 
 static bool
-render(struct env *env, const char *tmpl, const char *opath, 
-		struct hashmap *vars)
+render(struct roscha_env *env, const char *tmpl, const char *opath)
 {
 	bool ok = true;
-	char *output = template(env, tmpl, vars);
+	sds output = roscha_env_render(env, tmpl);
 	size_t outlen = strlen(output);
 	FILE *f = fopen(opath, "w");
 	if (fwrite(output, 1, outlen, f) != outlen) {
@@ -129,7 +110,7 @@ render(struct env *env, const char *tmpl, const char *opath,
 		log_printl_errno(LOG_FATAL, "Can't write %s", opath);
 	}
 	fclose(f);
-	free(output);
+	sdsfree(output);
 	return ok;
 }
 
@@ -147,11 +128,11 @@ render_make_index(struct render *r, const char *path)
 
 	if (r->dry_run) goto done;
 
-	hashmap_insert(r->common_vars, "years", r->years);
-	hashmap_insert(r->common_vars, "albums", r->years);
-	ok = render(r->env, "index.html", path, r->common_vars);
-	hashmap_remove(r->common_vars, "years");
-	hashmap_remove(r->common_vars, "albums");
+	roscha_hmap_set(r->env->vars, "years", r->years);
+	roscha_hmap_set(r->env->vars, "albums", r->years);
+	ok = render(r->env, "index.html", path);
+	roscha_hmap_unset(r->env->vars, "years");
+	roscha_hmap_unset(r->env->vars, "albums");
 
 	setdatetime(path, &r->modtime);
 done:
@@ -172,7 +153,7 @@ render_make_album(struct render *r, const char *path, const struct album *album)
 
 	if (r->dry_run) goto done;
 
-	ok = render(r->env, "album.html", path, r->common_vars);
+	ok = render(r->env, "album.html", path);
 
 	setdatetime(path, &r->modtime);
 done:
@@ -188,9 +169,9 @@ render_make_image(struct render *r, const char *path, const struct image *image)
 
 	if (r->dry_run) goto done;
 
-	hashmap_insert(r->common_vars, "image", image->map);
-	ok = render(r->env, "image.html", path, r->common_vars);
-	hashmap_remove(r->common_vars, "image");
+	roscha_hmap_set(r->env->vars, "image", image->map);
+	ok = render(r->env, "image.html", path);
+	roscha_hmap_unset(r->env->vars, "image");
 
 	setdatetime(path, &r->modtime);
 done:
@@ -217,17 +198,19 @@ render_init(struct render *r, const char *root, struct site_config *conf,
 
 	if (r->dry_run) goto cleanup;
 
-	r->env = env_new(tmplpath);
-	if (r->env == NULL) {
-		log_printl_errno(LOG_FATAL, "Couldn't initialize template engine");
+	r->env = roscha_env_new();
+	bool ok =  roscha_env_load_dir(r->env, tmplpath);
+	if (!ok) {
+		struct vector *errors = roscha_env_check_errors(r->env);
+		log_printl(LOG_FATAL, "Couldn't initialize template engine: %s",
+				errors->values[0]);
 		return false;
 	}
-	r->years = vector_new(8);
-	r->albums = vector_new(64);
+	r->years = roscha_object_new(vector_new_with_cap(8));
+	r->albums = roscha_object_new(vector_new_with_cap(64));
 
-	r->common_vars = hashmap_new_with_cap(16);
-	hashmap_insert(r->common_vars, "title", conf->title);
-	hashmap_insert(r->common_vars, "index", conf->base_url);
+	roscha_hmap_set_new(r->env->vars, "title", (slice_whole(conf->title)));
+	roscha_hmap_set_new(r->env->vars, "index", (slice_whole(conf->base_url)));
 
 	//bstree_inorder_walk(albums->root, albums_walk, (void *)r);
 
@@ -239,8 +222,7 @@ cleanup:
 void
 render_deinit(struct render *r)
 {
-	env_free(r->env);
-	years_destroy(r->years);
-	vector_free(r->albums);
-	hashmap_free(r->common_vars);
+	roscha_env_destroy(r->env);
+	roscha_object_unref(r->years);
+	roscha_object_unref(r->albums);
 }

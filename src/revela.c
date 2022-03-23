@@ -9,7 +9,6 @@
 #include "site.h"
 #include "config.h"
 #include "bstree.h"
-#include "template.h"
 
 static const char *usage =
 	"Usage: %s [options] [-i <input dir>] -o <output dir>\n";

@@ -1,16 +1,22 @@
 #ifndef REVELA_COMPONENTS_H
 #define REVELA_COMPONENTS_H
 
+#include "config.h"
+
+#include "hmap.h"
+#include "vector.h"
+#include "object.h"
+
 #include <time.h>
 #include <sys/stat.h>
 #include <libexif/exif-data.h>
 
-#include "config.h"
-#include "hashmap.h"
-
 #define PHOTO_THUMB_SUFFIX "_thumb"
 
+/* All data related to a single image's files, templates, and pages */
 struct image {
+	/* The albums this image belongs to */
+	struct album *album;
 	/* The path to the source image file */
 	char *source;
 	/* Points to the basename in source */
@@ -35,14 +41,18 @@ struct image {
 	char datestr[24];
 	/* Same as date but in seconds for easier comparison. See image_set_date() */
 	time_t tstamp;
-	struct album *album;
-	/* Hashmap with values to be passed to the image template */
-	struct hashmap *map;
-	/* Hashmap with values to be passed to thumbs and previews vectors */
-	struct hashmap *thumb;
+	/* Reference counted hashmap with values to be passed to the template */
+	struct roscha_object *map;
+	/* hashmap with values to be passed to the thumbs vector */
+	struct roscha_object *thumb;
+	/* 
+	 * Whether this image was modified since the last time the gallery was
+	 * generated.
+	 */
 	bool modified;
 };
 
+/* All data related to an album's images, templates, and pages */
 struct album {
 	struct site *site;
 	struct album_config *config;
@@ -58,14 +68,21 @@ struct album {
 	char year[8];
 	/* The date of the album is the date of the earliest image */
 	time_t tstamp;
+	/* 
+	 * Binary search tree with the images of this album sorted by date from
+	 * older to newer.
+	 */
 	struct bstree *images;
 	/* Files/dirs that belong to images and which shouldn't be deleted */
-	struct hashmap *preserved;
-	/* Hashmap with values to be passed to the template */
-	struct hashmap *map;
-	/* Vector with hashmaps of images to be passed to the templates */
-	struct vector *thumbs;
-	struct vector *previews;
+	struct hmap *preserved;
+	/* Reference counted hashmap with values to be passed to the template */
+	struct roscha_object *map;
+	/*
+	 * Reference counted vector with refcounted hashmaps of image thumbnails to
+	 * be passed to the template.
+	 */
+	struct roscha_object *thumbs;
+	/* Count of images that were actually updated */
 	size_t images_updated;
 };
 
