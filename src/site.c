@@ -130,6 +130,7 @@ images_walk(struct bstnode *node, void *data)
 	struct image *image = node->value;
 	struct stat dstat;
 	struct timespec ddate = { .tv_sec = image->tstamp, .tv_nsec = 0 };
+	int imgupdate, thumbupdate;
 	char htmlpath[PATH_MAX];
 	const char *base = rbasename(image->dst);
 
@@ -138,18 +139,22 @@ images_walk(struct bstnode *node, void *data)
 
 	if (!nmkdir(image->dst, &dstat, site->dry_run)) return false;
 
-	if (!site->dry_run) {
+	imgupdate = file_is_uptodate(image->dst_image, &image->modtime);
+	if (imgupdate == -1) goto magick_fail;
+	thumbupdate = file_is_uptodate(image->dst_image, &image->modtime);
+	if (thumbupdate == -1) goto magick_fail;
+	if (!site->dry_run && (!imgupdate || !thumbupdate)) {
 		TRYWAND(site->wand, MagickReadImage(site->wand, image->source));
 	}
-	if (!optimize_image(site->wand, image->dst_image, &site->config->images,
-			&image->modtime, site->dry_run)) {
+	if (!imgupdate && !optimize_image(site->wand, image->dst_image,
+				&site->config->images, &image->modtime, site->dry_run)) {
 		goto magick_fail;
 	}
-	if (!optimize_image(site->wand, image->dst_thumb, &site->config->thumbnails,
-			&image->modtime, site->dry_run)) {
+	if (!thumbupdate && !optimize_image(site->wand, image->dst_thumb,
+				&site->config->thumbnails, &image->modtime, site->dry_run)) {
 		goto magick_fail;
 	}
-	if (!site->dry_run) {
+	if (!site->dry_run && (!imgupdate || !thumbupdate)) {
 		MagickRemoveImage(site->wand);
 	}
 

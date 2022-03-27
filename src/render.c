@@ -36,16 +36,17 @@ images_walk(struct bstnode *node, void *data)
 	return true;
 }
 
-static struct roscha_object *
-years_push_new_year(struct roscha_object *years, char *yearstr)
+static inline void
+years_push_new_year(struct roscha_object *years, char *yearstr,
+		struct roscha_object **year, struct roscha_object **albums)
 {
-	struct roscha_object *year = roscha_object_new(hmap_new_with_cap(8));
-	struct roscha_object *albums = roscha_object_new(vector_new_with_cap(8));
-	roscha_hmap_set_new(year, "name", (slice_whole(yearstr)));
-	roscha_hmap_set(year, "albums", albums);
-	roscha_vector_push(years, year);
-
-	return year;
+	*year = roscha_object_new(hmap_new_with_cap(8));
+	*albums = roscha_object_new(vector_new_with_cap(8));
+	roscha_hmap_set_new((*year), "name", (slice_whole(yearstr)));
+	roscha_hmap_set(*year, "albums", *albums);
+	roscha_vector_push(years, *year);
+	roscha_object_unref(*year);
+	roscha_object_unref(*albums);
 }
 
 static void
@@ -54,15 +55,16 @@ years_push_album(struct roscha_object *years, struct album *album)
 	struct roscha_object *year;
 	struct roscha_object *albums;
 	if (years->vector->len == 0) {
-		year = years_push_new_year(years, album->year);
+		years_push_new_year(years, album->year, &years, &albums);
 	} else {
 		year = years->vector->values[years->vector->len - 1];
 		struct roscha_object *yearval = roscha_hmap_get(year, "name");
 		if (strcmp(yearval->slice.str, album->year)) {
-			year = years_push_new_year(years, album->year);
+			years_push_new_year(years, album->year, &year, &albums);
+		} else {
+			albums = roscha_hmap_get(year, "albums");
 		}
 	}
-	albums = roscha_hmap_get(year, "albums");
 	roscha_vector_push(albums, album->map);
 }
 
