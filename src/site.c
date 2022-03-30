@@ -86,10 +86,6 @@ optimize_image(MagickWand *wand, const char *dst,
 		const struct image_config *conf, 
 		const struct timespec *srcmtim, bool dry)
 {
-	int update = file_is_uptodate(dst, srcmtim);
-	if (update == -1) return false;
-	if (update == 1) return true;
-
 	log_printl(LOG_DETAIL, "Converting %s", dst);
 	if (dry) goto out;
 
@@ -413,6 +409,7 @@ site_deinit(struct site *site)
 	site_config_destroy(site->config);
 	free(site->content_dir);
 	free(site->root_dir);
+	free(site->output_dir);
 	if (site->wand != NULL) {
 		DestroyMagickWand(site->wand);
 		DestroyMagick();

@@ -15,7 +15,6 @@ test_site_config_read_ini(void)
 	asserteq(site_config_read_ini(TESTS_DIR, config), true);
 	asserteq(strcmp(config->title, "An example gallery"), 0);
 	asserteq(strcmp(config->base_url, "http://www.example.com/photos"), 0);
-	asserteq(config->max_previews, 20);
 	asserteq(config->images.strip, false);
 	asserteq(config->images.quality, 80);
 	asserteq(config->images.max_width, 3000);

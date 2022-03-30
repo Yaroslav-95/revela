@@ -126,12 +126,6 @@ site_config_keyvalue_handler(struct parcini_line *parsed, void *dst)
 				&config->base_url)?
 			KV_HANDLER_OK : KV_HANDLER_BADVALUE;
 	}
-	if (MATCHSK("", "max_previews", parsed)) {
-		return parcini_value_handle(&parsed->value, PARCINI_VALUE_INTEGER,
-				&config->max_previews)?
-			KV_HANDLER_OK : KV_HANDLER_BADVALUE;
-	}
-
 
 out:
 	return KV_HANDLER_NOMATCH;
@@ -232,7 +226,6 @@ site_config_init(void)
 {
 	struct site_config *config = calloc(1, sizeof *config);
 	if (config != NULL) {
-		config->max_previews = 10;
 		config->images = (struct image_config) {
 			.strip = true,
 			.quality = 80,

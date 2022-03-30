@@ -19,7 +19,6 @@ struct image_config {
 struct site_config {
 	char *title;
 	char *base_url;
-	uint32_t max_previews;
 	struct image_config images;
 	struct image_config thumbnails;
 };

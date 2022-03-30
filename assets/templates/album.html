@@ -12,7 +12,9 @@
 	<p>from <a href="{{ index }}/">{{ title }}</a> </p>
 </div>
 <div class="gallery-container">
+	{% if album.desc %}
 	<p>{{ album.desc }}</p>
+	{% endif %}
 	<div class="album-container">
 		{% for thumb in album.thumbs %}
 		<a href="{{ thumb.link }}">

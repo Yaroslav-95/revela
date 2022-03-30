@@ -167,8 +167,8 @@ image_new(char *src, const struct stat *pstat, struct album *album)
 	image->exif_data = exif_data_new_from_file(image->source);
 	image->modtime = pstat->st_mtim;
 	image_set_date(image, pstat);
-	image->map = roscha_object_new(hmap_new_with_cap(8));
-	image->thumb = roscha_object_new(hmap_new_with_cap(4));
+	image->map = roscha_object_new(hmap_new_with_cap(16));
+	image->thumb = roscha_object_new(hmap_new_with_cap(8));
 	image->modified = false;
 
 	return image;

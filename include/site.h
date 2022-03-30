@@ -21,7 +21,7 @@ struct site {
 	struct site_config *config;
 	MagickWand *wand;
 	char *root_dir;
-	const char *output_dir;
+	char *output_dir;
 	char *content_dir;
 	/* 
 	 * Indicates how many characters after the full root dir path of the input

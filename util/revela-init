@@ -1,0 +1,30 @@
+#!/bin/sh
+
+this="$(readlink -f $0)"
+sharedir="$(dirname $this)"
+
+printf "Enter your gallery name (e.g. \"Gallery\")> "
+read name
+printf "Enter base url (e.g. \"/photos\"; can be empty)> "
+read burl
+
+echo "title = \"$name\"
+base_url = \"$burl\"
+
+[images]
+strip = no
+quality = 80
+max_width = 1200
+max_height = 1200
+smart_resize = yes
+
+[thumbnails]
+strip = yes
+quality = 60
+max_width = 200
+max_height = 200
+smart_resize = yes
+blur = 50" > site.ini
+
+cp -r "$sharedir"/assets/* .
+mkdir content
