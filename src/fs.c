@@ -206,7 +206,9 @@ rmextra(const char *path, struct hmap *preserved, preremove_fn cb,
 {
 	ssize_t removed = 0;
 	DIR *dir = opendir(path);
-	if (dir == NULL) return -1;
+	if (dir == NULL) {
+		return dry ? 0 : -1;
+	}
 
 	struct dirent *ent;
 	while ((ent = readdir(dir))) {

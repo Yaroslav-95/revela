@@ -202,7 +202,7 @@ images_walk(struct bstnode *node, void *data)
 	}
 
 success:
-	setdatetime(image->dst, &ddate);
+	if (!site->dry_run) setdatetime(image->dst, &ddate);
 	return true;
 magick_fail:
 	return false;
