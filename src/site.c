@@ -33,32 +33,33 @@ prerm_imagedir(const char *path, void *data)
 		return false;
 	}
 	if (S_ISDIR(st.st_mode)) {
-		struct image *old = image_old(&st);
-		struct bstnode *imnode = bstree_add(album->images, old),
-					   *prev = bstree_predecessor(imnode),
-					   *next = bstree_successor(imnode);
+		struct image *prev, *next = NULL;
+		size_t i;
+		vector_foreach(album->images, i, prev) {
+			if (prev->tstamp > st.st_mtim.tv_sec) {
+				prev = next;
+				break;
+			}
+			next = prev;
+		}
 		if (prev) {
-			struct image *imprev = (struct image *)prev->value;
-			if (!imprev->modified) {
-				joinpathb(htmlpath, imprev->dst, index_html);
-				if (!render_make_image(&album->site->render, htmlpath, imprev)) {
+			if (!prev->modified) {
+				joinpathb(htmlpath, prev->dst, index_html);
+				if (!render_make_image(&album->site->render, htmlpath, prev)) {
 					goto fail;
 				}
 			}
 		}
-		if (next) {
-			struct image *imnext = (struct image *)next->value;
-			if (!imnext->modified) {
-				joinpathb(htmlpath, imnext->dst, index_html);
-				if (!render_make_image(&album->site->render, htmlpath, imnext)) {
+		if (next != prev) {
+			if (!next->modified) {
+				joinpathb(htmlpath, next->dst, index_html);
+				if (!render_make_image(&album->site->render, htmlpath, next)) {
 					goto fail;
 				}
 			}
 		}
-		bstree_remove(album->images, imnode);
 		return true;
 fail:
-		bstree_remove(album->images, imnode);
 		return false;
 	}
 	return true;
@@ -120,131 +121,134 @@ magick_fail:
 }
 
 static bool
-images_walk(struct bstnode *node, void *data)
+images_walk(struct site *site, struct vector *images)
 {
-	struct site *site = data;
-	struct image *image = node->value;
-	struct stat dstat;
-	struct timespec ddate = { .tv_sec = image->tstamp, .tv_nsec = 0 };
-	int imgupdate, thumbupdate;
-	char htmlpath[PATH_MAX];
-	const char *base = rbasename(image->dst);
+	size_t i;
+	struct image *image;
+	
+	vector_foreach(images, i, image) {
+		struct stat dstat;
+		struct timespec ddate = { .tv_sec = image->tstamp, .tv_nsec = 0 };
+		int imgupdate, thumbupdate;
+		char htmlpath[PATH_MAX];
+		const char *base = rbasename(image->dst);
 
-	log_printl(LOG_DEBUG, "Image: %s, datetime %s", image->basename, 
-			image->datestr);
+		log_printl(LOG_DEBUG, "Image: %s, datetime %s", image->basename, 
+				image->datestr);
 
-	if (!nmkdir(image->dst, &dstat, site->dry_run)) return false;
+		if (!nmkdir(image->dst, &dstat, site->dry_run)) return false;
 
-	imgupdate = file_is_uptodate(image->dst_image, &image->modtime);
-	if (imgupdate == -1) goto magick_fail;
-	thumbupdate = file_is_uptodate(image->dst_image, &image->modtime);
-	if (thumbupdate == -1) goto magick_fail;
-	if (!site->dry_run && (!imgupdate || !thumbupdate)) {
-		TRYWAND(site->wand, MagickReadImage(site->wand, image->source));
-	}
-	if (!imgupdate && !optimize_image(site->wand, image->dst_image,
-				&site->config->images, &image->modtime, site->dry_run)) {
-		goto magick_fail;
-	}
-	if (!thumbupdate && !optimize_image(site->wand, image->dst_thumb,
-				&site->config->thumbnails, &image->modtime, site->dry_run)) {
-		goto magick_fail;
-	}
-	if (!site->dry_run && (!imgupdate || !thumbupdate)) {
-		MagickRemoveImage(site->wand);
-	}
-
-	joinpathb(htmlpath, image->dst, index_html);
-	hmap_set(image->album->preserved, base, (char *)base);
-
-	int isupdate = file_is_uptodate(htmlpath, &site->render.modtime);
-	if (isupdate == -1) return false;
-	if (isupdate == 0) {
-		if (!render_make_image(&site->render, htmlpath, image)) {
-			return false;
+		imgupdate = file_is_uptodate(image->dst_image, &image->modtime);
+		if (imgupdate == -1) goto magick_fail;
+		thumbupdate = file_is_uptodate(image->dst_image, &image->modtime);
+		if (thumbupdate == -1) goto magick_fail;
+		if (!site->dry_run && (!imgupdate || !thumbupdate)) {
+			TRYWAND(site->wand, MagickReadImage(site->wand, image->source));
 		}
-		image->modified = true;
-		image->album->images_updated++;
-		/* Check if previous image wasn't updated, if so, render it */
-		struct bstnode *prev = bstree_predecessor(node);
-		if (prev) {
-			struct image *iprev = prev->value;
-			if (!iprev->modified) {
-				joinpathb(htmlpath, iprev->dst, index_html);
-				if (!render_make_image(&site->render, htmlpath, iprev)) {
-					return false;
+		if (!imgupdate && !optimize_image(site->wand, image->dst_image,
+					&site->config->images, &image->modtime, site->dry_run)) {
+			goto magick_fail;
+		}
+		if (!thumbupdate && !optimize_image(site->wand, image->dst_thumb,
+					&site->config->thumbnails, &image->modtime, site->dry_run)) {
+			goto magick_fail;
+		}
+		if (!site->dry_run && (!imgupdate || !thumbupdate)) {
+			MagickRemoveImage(site->wand);
+		}
+
+		joinpathb(htmlpath, image->dst, index_html);
+		hmap_set(image->album->preserved, base, (char *)base);
+
+		int isupdate = file_is_uptodate(htmlpath, &site->render.modtime);
+		if (isupdate == -1) return false;
+		if (isupdate == 0) {
+			if (!render_make_image(&site->render, htmlpath, image)) {
+				return false;
+			}
+			image->modified = true;
+			image->album->images_updated++;
+			/* Check if previous image wasn't updated, if so, render it */
+			if (i > 0) {
+				struct image *prev = images->values[i - 1];
+				if (!prev->modified) {
+					joinpathb(htmlpath, prev->dst, index_html);
+					if (!render_make_image(&site->render, htmlpath, prev)) {
+						return false;
+					}
+					goto success;
 				}
-				goto success;
+			}
+
+			goto success;
+		}
+
+		/*
+		 * Render anyway if next image doesn't exist yet in directory or if
+		 * previous image was updated.
+		 */
+		if (i < images->len - 1) {
+			struct image *next = images->values[i + 1];
+			if (access(next->dst, F_OK) != 0) {
+				image->album->images_updated++;
+				return render_make_image(&site->render, htmlpath, image);
+			}
+		}
+		if (i > 0) {
+				struct image *prev = images->values[i - 1];
+			if (prev->modified) {
+				image->album->images_updated++;
+				return render_make_image(&site->render, htmlpath, image);
 			}
 		}
 
-		goto success;
+	success:
+		if (!site->dry_run) setdatetime(image->dst, &ddate);
+		continue;
+	magick_fail:
+		return false;
 	}
-
-	/*
-	 * Render anyway if next image doesn't exist yet in directory or if previous
-	 * image was updated.
-	 */
-	struct bstnode *next = bstree_successor(node), *prev = NULL;
-	if (next) {
-		struct image *inext = next->value;
-		if (access(inext->dst, F_OK) != 0) {
-			image->album->images_updated++;
-			return render_make_image(&site->render, htmlpath, image);
-		}
-	}
-	if ((prev = bstree_predecessor(node)) != NULL) {
-		struct image *iprev = prev->value;
-		if (iprev->modified) {
-			image->album->images_updated++;
-			return render_make_image(&site->render, htmlpath, image);
-		}
-	}
-
-success:
-	if (!site->dry_run) setdatetime(image->dst, &ddate);
 	return true;
-magick_fail:
-	return false;
 }
 
 static bool
-albums_walk(struct bstnode *node, void *data)
+albums_walk(struct site *site)
 {
-	struct site *site = data;
-	struct album *album = node->value;
-	struct stat dstat;
-	if (!nmkdir(album->slug, &dstat, site->dry_run)) return false;
+	size_t i;
+	struct album *album;
 
-	hmap_set(site->album_dirs, album->slug, (char *)album->slug);
-	if (!site->dry_run) {
-		if (!render_set_album_vars(&site->render, album)) return false;
+	vector_foreach(site->albums, i, album) {
+		struct stat dstat;
+		if (!nmkdir(album->slug, &dstat, site->dry_run)) return false;
 
+		hmap_set(site->album_dirs, album->slug, (char *)album->slug);
+		if (!site->dry_run) {
+			if (!render_set_album_vars(&site->render, album)) return false;
+
+		}
+
+		log_printl(LOG_DEBUG, "Album: %s, datetime %s", album->slug, album->datestr);
+		if (!images_walk(site, album->images)) {
+			return false;
+		}
+
+		hmap_set(album->preserved, index_html, (char *)index_html);
+		ssize_t deleted = rmextra(album->slug, album->preserved, prerm_imagedir,
+				album, site->dry_run);
+		if (deleted < 0) {
+			log_printl_errno(LOG_ERROR, 
+						"Something happened while deleting extraneous files");
+		} else {
+			album->images_updated += deleted;
+		}
+		if (album->images_updated > 0) {
+			site->render.albums_updated++;
+		}
+
+		char htmlpath[PATH_MAX];
+		joinpathb(htmlpath, album->slug, index_html);
+		if (!render_make_album(&site->render, htmlpath, album)) return false;
 	}
-
-	log_printl(LOG_DEBUG, "Album: %s, datetime %s", album->slug, album->datestr);
-	if (!bstree_inorder_walk(album->images->root, images_walk, site)) {
-		return false;
-	}
-
-	hmap_set(album->preserved, index_html, (char *)index_html);
-	ssize_t deleted = rmextra(album->slug, album->preserved, prerm_imagedir,
-			album, site->dry_run);
-	if (deleted < 0) {
-		log_printl_errno(LOG_ERROR, 
-					"Something happened while deleting extraneous files");
-	} else {
-		album->images_updated += deleted;
-	}
-	if (album->images_updated > 0) {
-		site->render.albums_updated++;
-	}
-
-	char htmlpath[PATH_MAX];
-	joinpathb(htmlpath, album->slug, index_html);
-	if (!render_make_album(&site->render, htmlpath, album)) return false;
-
-
 	return true;
 }
 
@@ -304,9 +308,11 @@ traverse(struct site *site, const char *path, struct stat *dstat)
 		free(subpath);
 	}
 	
-	if (album->images->root != NULL) {
+	if (album->images->len != 0) {
 		album_set_year(album);
-		bstree_add(site->albums, album);
+		qsort(album->images->values,
+			  album->images->len, sizeof(void *), image_cmp);
+		vector_push(site->albums, album);
 		closedir(dir);
 		return true;
 	}
@@ -333,7 +339,7 @@ site_build(struct site *site)
 		return false;
 	}
 
-	if (!bstree_inorder_walk(site->albums->root, albums_walk, (void *)site)) {
+	if (!albums_walk(site)) {
 		return false;
 	}
 
@@ -371,6 +377,7 @@ site_load(struct site *site)
 	}
 
 	if (!traverse(site, site->content_dir, &cstat)) return false;
+	qsort(site->albums->values, site->albums->len, sizeof(void *), album_cmp);
 
 	return render_init(&site->render, site->root_dir, site->config, site->albums);
 }
@@ -380,7 +387,7 @@ site_init(struct site *site)
 {
 	site->config = site_config_init();
 	if (!site_config_read_ini(site->root_dir, site->config)) return false;
-	site->albums = bstree_new(album_cmp, album_destroy);
+	site->albums = vector_new();
 
 	if (site->root_dir == NULL) {
 		site->root_dir = malloc(PATH_MAX);
@@ -405,7 +412,14 @@ site_init(struct site *site)
 void
 site_deinit(struct site *site)
 {
-	if (site->albums) bstree_destroy(site->albums);
+	if (site->albums) {
+		size_t i;
+		struct album *a;
+		vector_foreach(site->albums, i, a) {
+			album_destroy(a);
+		}
+		vector_free(site->albums);
+	}
 	site_config_destroy(site->config);
 	free(site->content_dir);
 	free(site->root_dir);

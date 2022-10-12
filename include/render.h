@@ -1,7 +1,6 @@
 #ifndef REVELA_RENDER_H
 #define REVELA_RENDER_H
 
-#include "bstree.h"
 #include "config.h"
 #include "components.h"
 
@@ -86,7 +85,7 @@ bool render_make_image(struct render *r, const char *path,
 bool render_set_album_vars(struct render *, struct album *);
 
 bool render_init(struct render *, const char *path, struct site_config *,
-		struct bstree *albums);
+		struct vector *albums);
 
 void render_deinit(struct render *);
 

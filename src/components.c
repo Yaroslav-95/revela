@@ -175,17 +175,16 @@ image_new(char *src, const struct stat *pstat, struct album *album)
 }
 
 int
-image_cmp(const void *a, const void *b)
+image_cmp(const void *va, const void *vb)
 {
+	struct image *a = *(struct image **)va, *b = *(struct image **)vb;
 	/* Compare in ascending order */
-	return (((struct image *)a)->tstamp > ((struct image *)b)->tstamp)
-		- (((struct image *)a)->tstamp < ((struct image *)b)->tstamp);
+	return (a->tstamp > b->tstamp) - (a->tstamp < b->tstamp);
 }
 
 void
-image_destroy(void *data)
+image_destroy(struct image *image)
 {
-	struct image *image = data;
 	free(image->source);
 	free(image->url);
 	free(image->url_image);
@@ -213,7 +212,7 @@ album_new(struct album_config *conf, struct site *site, const char *src,
 	album->config = conf;
 	album->source = strdup(src);
 	album->slug = slugify(rsrc, site->config->base_url, &album->url);
-	album->images = bstree_new(image_cmp, image_destroy);
+	album->images = vector_new_with_cap(64);
 	album->tstamp = MAXTIME;
 	album->preserved = hmap_new();
 	album->map = roscha_object_new(hmap_new());
@@ -223,11 +222,11 @@ album_new(struct album_config *conf, struct site *site, const char *src,
 }
 
 int
-album_cmp(const void *a, const void *b)
+album_cmp(const void *va, const void *vb)
 {
+	struct album *a = *(struct album **)va, *b = *(struct album **)vb;
 	/* Compare in descending order */
-	return (((struct album *)a)->tstamp < ((struct album *)b)->tstamp)
-		- (((struct album *)a)->tstamp > ((struct album *)b)->tstamp);
+	return (a->tstamp < b->tstamp) - (a->tstamp > b->tstamp);
 
 }
 
@@ -238,7 +237,7 @@ album_add_image(struct album *album, struct image *image)
 		album->tstamp = image->tstamp;
 		album->datestr = image->datestr;
 	}
-	bstree_add(album->images, image);
+	vector_push(album->images, image);
 }
 
 void
@@ -251,15 +250,19 @@ album_set_year(struct album *album)
 }
 
 void
-album_destroy(void *data)
+album_destroy(struct album *album)
 {
-	struct album *album = data;
 	if (album->config != NULL) {
 		album_config_destroy(album->config);
 	}
+	size_t i;
+	struct image *img;
+	vector_foreach(album->images, i, img) {
+		image_destroy(img);
+	}
+	vector_free(album->images);
 	free(album->source);
 	free(album->url);
-	bstree_destroy(album->images);
 	hmap_free(album->preserved);
 	roscha_object_unref(album->map);
 	roscha_object_unref(album->thumbs);

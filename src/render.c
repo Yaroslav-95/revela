@@ -7,33 +7,33 @@
 #include "log.h"
 #include "site.h"
 
-/* TODO: refactor to use roscha instead of unja */
-
-static bool
-images_walk(struct bstnode *node, void *data)
+static void
+images_walk(struct vector *images)
 {
-	struct image *image = node->value;
+	size_t i;
+	struct image *image;
+	size_t last = images->len - 1;
 
-	roscha_hmap_set_new(image->map, "source", (slice_whole(image->url_image)));
-	roscha_hmap_set_new(image->map, "date", (slice_whole(image->datestr)));
-	struct bstnode *prev = bstree_predecessor(node), 
-				   *next = bstree_successor(node);
-	char *url;
-	if (prev) {
-		url = ((struct image *)prev->value)->url;
-		roscha_hmap_set_new(image->map, "prev", (slice_whole(url)));
+	vector_foreach(images, i, image) {
+		roscha_hmap_set_new(image->map, "source", (slice_whole(image->url_image)));
+		roscha_hmap_set_new(image->map, "date", (slice_whole(image->datestr)));
+		char *url;
+		if (i > 0) {
+			struct image *prev = images->values[i - 1];
+			url = prev->url;
+			roscha_hmap_set_new(image->map, "prev", (slice_whole(url)));
+		}
+		if (i < last) {
+			struct image *next = images->values[i + 1];
+			url = next->url;
+			roscha_hmap_set_new(image->map, "next", (slice_whole(url)));
+		}
+
+		roscha_hmap_set_new(image->thumb, "link", (slice_whole(image->url)));
+		roscha_hmap_set_new(image->thumb, "source", (slice_whole(image->url_thumb)));
+
+		roscha_vector_push(image->album->thumbs, image->thumb);
 	}
-	if (next) {
-		url = ((struct image *)next->value)->url;
-		roscha_hmap_set_new(image->map, "next", (slice_whole(url)));
-	}
-
-	roscha_hmap_set_new(image->thumb, "link", (slice_whole(image->url)));
-	roscha_hmap_set_new(image->thumb, "source", (slice_whole(image->url_thumb)));
-
-	roscha_vector_push(image->album->thumbs, image->thumb);
-
-	return true;
 }
 
 static inline void
@@ -84,7 +84,7 @@ render_set_album_vars(struct render *r, struct album *album)
 	roscha_hmap_set_new(album->map, "date", (slice_whole(album->datestr)));
 	roscha_hmap_set_new(album->map, "year", (slice_whole(album->year)));
 
-	bstree_inorder_walk(album->images->root, images_walk, NULL);
+	images_walk(album->images);
 
 	roscha_hmap_set(album->map, "thumbs", album->thumbs);
 
@@ -182,7 +182,7 @@ done:
 
 bool
 render_init(struct render *r, const char *root, struct site_config *conf,
-		struct bstree *albums)
+		struct vector *albums)
 {
 	char *tmplpath = joinpath(root, TEMPLATESDIR);
 	struct stat tstat;

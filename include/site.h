@@ -2,7 +2,6 @@
 #define REVELA_SITE_H
 
 #include "config.h"
-#include "bstree.h"
 #include "render.h"
 #include "components.h"
 
@@ -29,7 +28,8 @@ struct site {
 	 * site_init()
 	 */
 	size_t rel_content_dir;
-	struct bstree *albums;
+	/* List/vector with the albums to be sorted from newer to older */
+	struct vector *albums;
 	/* Files/dirs that belong to albums and which shouldn't be deleted */
 	struct hmap *album_dirs;
 	struct render render;

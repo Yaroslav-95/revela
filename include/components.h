@@ -68,11 +68,11 @@ struct album {
 	char year[8];
 	/* The date of the album is the date of the earliest image */
 	time_t tstamp;
-	/* 
-	 * Binary search tree with the images of this album sorted by date from
+	/*
+	 * List/vector with the images of this album to be sorted by from
 	 * older to newer.
 	 */
-	struct bstree *images;
+	struct vector *images;
 	/* Files/dirs that belong to images and which shouldn't be deleted */
 	struct hmap *preserved;
 	/* Reference counted hashmap with values to be passed to the template */
@@ -92,7 +92,7 @@ struct image *image_old(struct stat *istat);
 
 int image_cmp(const void *a, const void *b);
 
-void image_destroy(void *data);
+void image_destroy(struct image *);
 
 struct album *album_new(struct album_config *, struct site *,
 		const char *src, const char *rsrc, const struct stat *);
@@ -103,6 +103,6 @@ void album_add_image(struct album *, struct image *);
 
 void album_set_year(struct album *);
 
-void album_destroy(void *data);
+void album_destroy(struct album *);
 
 #endif
