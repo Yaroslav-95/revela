@@ -11,7 +11,7 @@
 #include <sys/stat.h>
 #include <libexif/exif-data.h>
 
-#define PHOTO_THUMB_SUFFIX "_thumb"
+#define THUMB_SUFFIX "_thumb"
 
 /* All data related to a single image's files, templates, and pages */
 struct image {
@@ -55,12 +55,19 @@ struct image {
 /* All data related to an album's images, templates, and pages */
 struct album {
 	struct site *site;
+	/* The album information, i.e. title, description */
 	struct album_config *config;
+	/* Modtime for the album.ini file; will be used to check whether we need to
+	 * re-render the html for this album based on changes made to it.
+	 */
+	struct timespec modtime;
+	/* Whether the album.ini was updated */
+	bool config_updated;
 	/* The path to the source directory */
 	char *source;
-	/* The full url that will be used in the template */
+	/* The full URL that will be used in the template */
 	char *url;
-	/* Pointer to the slug part in url that will be used for the new dir */
+	/* Pointer to the slug part in the URL that will be used for the new dir */
 	const char *slug;
 	/* Pointer to the human readable date of the earliest image */
 	const char *datestr;
@@ -68,8 +75,7 @@ struct album {
 	char year[8];
 	/* The date of the album is the date of the earliest image */
 	time_t tstamp;
-	/*
-	 * List/vector with the images of this album to be sorted by from
+	/* List/vector with the images of this album to be sorted by from
 	 * older to newer.
 	 */
 	struct vector *images;
@@ -77,8 +83,7 @@ struct album {
 	struct hmap *preserved;
 	/* Reference counted hashmap with values to be passed to the template */
 	struct roscha_object *map;
-	/*
-	 * Reference counted vector with refcounted hashmaps of image thumbnails to
+	/* Reference counted vector with refcounted hashmaps of image thumbnails to
 	 * be passed to the template.
 	 */
 	struct roscha_object *thumbs;

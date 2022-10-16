@@ -8,10 +8,9 @@
 #include "log.h"
 #include "site.h"
 #include "config.h"
-#include "bstree.h"
 
 #ifndef VERSION
-#define VERSION "0.1.1"
+#define VERSION "0.1.2"
 #endif
 
 static const char *usage =

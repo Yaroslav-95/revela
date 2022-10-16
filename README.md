@@ -27,6 +27,5 @@ system, or read the contents in `docs/` in the source.
 ## TODO:
 
 * Add exif tags to template hashmap.
-* Re-render album html when an album.ini has changed.
 * Better test coverage? (if I am not too lazy).
 * Document templates.

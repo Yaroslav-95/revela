@@ -1,5 +1,6 @@
 #include "site.h"
 
+#include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,9 +13,11 @@
 
 /* TODO: handle error cases for paths that are too long */
 
-#define THUMB_SUFFIX "_thumb"
-
 static const char *index_html = "index.html";
+/* File which revela uses solely to store the modtime of the album.ini file to
+ * check whether we should re-render the album html files.
+ */
+static const char *album_meta = ".revela";
 
 /*
  * Checks where the removed image used to be based on the modification time of
@@ -162,7 +165,7 @@ images_walk(struct site *site, struct vector *images)
 
 		int isupdate = file_is_uptodate(htmlpath, &site->render.modtime);
 		if (isupdate == -1) return false;
-		if (isupdate == 0) {
+		if (isupdate == 0 || image->album->config_updated) {
 			if (!render_make_image(&site->render, htmlpath, image)) {
 				return false;
 			}
@@ -219,12 +222,33 @@ albums_walk(struct site *site)
 
 	vector_foreach(site->albums, i, album) {
 		struct stat dstat;
-		if (!nmkdir(album->slug, &dstat, site->dry_run)) return false;
+		char pathbuf[PATH_MAX];
+		switch (nmkdir(album->slug, &dstat, site->dry_run)) {
+		case NMKDIR_ERROR:
+			return false;
+		case NMKDIR_CREATED:
+			album->config_updated = true;
+			if (!site->dry_run) {
+				joinpathb(pathbuf, album->slug, album_meta);
+				close(creat(pathbuf, 0644));
+				setdatetime(pathbuf, &album->modtime);
+			}
+			break;
+		case NMKDIR_NOOP:
+			joinpathb(pathbuf, album->slug, album_meta);
+			if (file_is_uptodate(pathbuf, &album->modtime) == 0) {
+				album->config_updated = true;
+				if (!site->dry_run) {
+					close(creat(pathbuf, 0644));
+					setdatetime(pathbuf, &album->modtime);
+				}
+			}
+			break;
+		}
 
 		hmap_set(site->album_dirs, album->slug, (char *)album->slug);
 		if (!site->dry_run) {
 			if (!render_set_album_vars(&site->render, album)) return false;
-
 		}
 
 		log_printl(LOG_DEBUG, "Album: %s, datetime %s", album->slug, album->datestr);
@@ -233,6 +257,7 @@ albums_walk(struct site *site)
 		}
 
 		hmap_set(album->preserved, index_html, (char *)index_html);
+		hmap_set(album->preserved, album_meta, (char *)album_meta);
 		ssize_t deleted = rmextra(album->slug, album->preserved, prerm_imagedir,
 				album, site->dry_run);
 		if (deleted < 0) {
@@ -245,9 +270,8 @@ albums_walk(struct site *site)
 			site->render.albums_updated++;
 		}
 
-		char htmlpath[PATH_MAX];
-		joinpathb(htmlpath, album->slug, index_html);
-		if (!render_make_album(&site->render, htmlpath, album)) return false;
+		joinpathb(pathbuf, album->slug, index_html);
+		if (!render_make_album(&site->render, pathbuf, album)) return false;
 	}
 	return true;
 }
@@ -296,6 +320,7 @@ traverse(struct site *site, const char *path, struct stat *dstat)
 		} else if (!strcmp(ent->d_name, ALBUM_CONF)) {
 			ok = album_config_read_ini(subpath, album_conf);
 			if (!ok) goto fail;
+			album->modtime = fstats.st_mtim;
 		} else if (isimage(subpath)) {
 			struct image *image = image_new(subpath, &fstats, album);
 			if (image == NULL) {

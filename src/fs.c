@@ -138,8 +138,7 @@ file_is_uptodate(const char *path, const struct timespec *srcmtim)
 			return -1;
 		}
 		return 0;
-	} else if (dststat.st_mtim.tv_sec != srcmtim->tv_sec
-			|| dststat.st_mtim.tv_nsec != srcmtim->tv_nsec) {
+	} else if (!TIMEQUAL(dststat.st_mtim, *srcmtim)) {
 		return 0;
 	}
 

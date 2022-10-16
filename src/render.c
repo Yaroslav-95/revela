@@ -145,7 +145,7 @@ bool
 render_make_album(struct render *r, const char *path, const struct album *album)
 {
 	bool ok = true;
-	if (album->images_updated == 0) {
+	if (album->images_updated == 0 && !album->config_updated) {
 		int isupdate = file_is_uptodate(path, &r->modtime);
 		if (isupdate == -1) return false;
 		if (isupdate == 1) return true;

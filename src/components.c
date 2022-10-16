@@ -156,12 +156,12 @@ image_new(char *src, const struct stat *pstat, struct album *album)
 	size_t relstart = album->slug - album->url;
 	image->url = joinpath(album->url, noext);
 	image->url_image = joinpath(image->url, image->basename);
-	image->url_thumb = malloc(strlen(image->url) + strlen(PHOTO_THUMB_SUFFIX) +
+	image->url_thumb = malloc(strlen(image->url) + strlen(THUMB_SUFFIX) +
 			strlen(image->basename) + 2);
 	image->dst = image->url + relstart;
 	image->dst_image = image->url_image + relstart;
 	image->dst_thumb = image->url_thumb + relstart;
-	sprintf(image->url_thumb, "%s/%s" PHOTO_THUMB_SUFFIX "%s", image->url,
+	sprintf(image->url_thumb, "%s/%s" THUMB_SUFFIX "%s", image->url,
 			noext, image->ext);
 
 	image->exif_data = exif_data_new_from_file(image->source);

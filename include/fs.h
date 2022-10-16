@@ -41,6 +41,9 @@ bool isimage(const char *fname);
  */
 const char *delext(const char *restrict basename, char *restrict dest, size_t n);
 
+#define TIMEQUAL(a, b) \
+	((a).tv_sec == (b).tv_sec && (a).tv_nsec == (b).tv_nsec)
+
 /*
  * -1 if error; 0 if the timestamps are different; 1 if they are equal.
  */
