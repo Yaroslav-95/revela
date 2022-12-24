@@ -1,6 +1,6 @@
 [submodule "roscha"]
 	path = roscha
-	url = git@git.yaroslavps.com:public/roscha.git
+	url = https://git.yaroslavps.com/roscha
 [submodule "parcini"]
 	path = parcini
 	url = https://git.yaroslavps.com/parcini
