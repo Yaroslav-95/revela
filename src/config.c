@@ -28,17 +28,21 @@ enum kv_handler_result {
 
 static int
 site_config_images_keyvalue_handler(struct parcini_line *parsed,
-		struct image_config *iconfig)
+                                    struct image_config *iconfig)
 {
 	int res = CONFIG_KEY_BADKEY;
 	if (!strcmp(parsed->key, "strip")) {
 		res = parcini_value_handle(&parsed->value, PARCINI_VALUE_BOOLEAN,
-				&iconfig->strip) ? CONFIG_KEY_OK : CONFIG_KEY_BADVALUE;
+		                           &iconfig->strip)
+		        ? CONFIG_KEY_OK
+		        : CONFIG_KEY_BADVALUE;
 	}
 	if (!strcmp(parsed->key, "quality")) {
 		long int temp;
 		res = parcini_value_handle(&parsed->value, PARCINI_VALUE_INTEGER,
-				&temp) ? CONFIG_KEY_OK : CONFIG_KEY_BADVALUE;
+		                           &temp)
+		        ? CONFIG_KEY_OK
+		        : CONFIG_KEY_BADVALUE;
 		if (res == CONFIG_KEY_OK) {
 			if (temp > 100 || temp < 0) {
 				res = CONFIG_KEY_BADVALUE;
@@ -50,7 +54,9 @@ site_config_images_keyvalue_handler(struct parcini_line *parsed,
 	if (!strcmp(parsed->key, "max_width")) {
 		long int temp;
 		res = parcini_value_handle(&parsed->value, PARCINI_VALUE_INTEGER,
-				&temp) ? CONFIG_KEY_OK : CONFIG_KEY_BADVALUE;
+		                           &temp)
+		        ? CONFIG_KEY_OK
+		        : CONFIG_KEY_BADVALUE;
 		if (res == CONFIG_KEY_OK) {
 			if (temp < 1) {
 				res = CONFIG_KEY_BADVALUE;
@@ -62,7 +68,9 @@ site_config_images_keyvalue_handler(struct parcini_line *parsed,
 	if (!strcmp(parsed->key, "max_height")) {
 		long int temp;
 		res = parcini_value_handle(&parsed->value, PARCINI_VALUE_INTEGER,
-				&temp) ? CONFIG_KEY_OK : CONFIG_KEY_BADVALUE;
+		                           &temp)
+		        ? CONFIG_KEY_OK
+		        : CONFIG_KEY_BADVALUE;
 		if (res == CONFIG_KEY_OK) {
 			if (temp < 1) {
 				res = CONFIG_KEY_BADVALUE;
@@ -73,17 +81,21 @@ site_config_images_keyvalue_handler(struct parcini_line *parsed,
 	}
 	if (!strcmp(parsed->key, "smart_resize")) {
 		res = parcini_value_handle(&parsed->value, PARCINI_VALUE_BOOLEAN,
-				&iconfig->smart_resize) ? CONFIG_KEY_OK : CONFIG_KEY_BADVALUE;
+		                           &iconfig->smart_resize)
+		        ? CONFIG_KEY_OK
+		        : CONFIG_KEY_BADVALUE;
 	}
 	if (!strcmp(parsed->key, "blur")) {
 		long int temp;
 		res = parcini_value_handle(&parsed->value, PARCINI_VALUE_INTEGER,
-				&temp) ? CONFIG_KEY_OK : CONFIG_KEY_BADVALUE;
+		                           &temp)
+		        ? CONFIG_KEY_OK
+		        : CONFIG_KEY_BADVALUE;
 		if (res == CONFIG_KEY_OK) {
 			if (temp < -100 || temp > 100) {
 				res = CONFIG_KEY_BADVALUE;
 			} else {
-				iconfig->blur = (double)temp/100;
+				iconfig->blur = (double)temp / 100;
 			}
 		}
 	}
@@ -102,7 +114,7 @@ site_config_keyvalue_handler(struct parcini_line *parsed, void *dst)
 		subconf = site_config_images_keyvalue_handler(parsed, &config->images);
 	} else if (!strcmp(parsed->section, "thumbnails")) {
 		subconf = site_config_images_keyvalue_handler(parsed,
-				&config->thumbnails);
+		                                              &config->thumbnails);
 	}
 	switch (subconf) {
 	case CONFIG_KEY_OK:
@@ -117,14 +129,16 @@ site_config_keyvalue_handler(struct parcini_line *parsed, void *dst)
 	if (MATCHSK("", "title", parsed)) {
 		free(config->title);
 		return parcini_value_handle(&parsed->value, PARCINI_VALUE_STRING,
-				&config->title)?
-			KV_HANDLER_OK : KV_HANDLER_BADVALUE;
+		                            &config->title)
+		         ? KV_HANDLER_OK
+		         : KV_HANDLER_BADVALUE;
 	}
 	if (MATCHSK("", "base_url", parsed)) {
 		free(config->base_url);
 		return parcini_value_handle(&parsed->value, PARCINI_VALUE_STRING,
-				&config->base_url)?
-			KV_HANDLER_OK : KV_HANDLER_BADVALUE;
+		                            &config->base_url)
+		         ? KV_HANDLER_OK
+		         : KV_HANDLER_BADVALUE;
 	}
 
 out:
@@ -138,26 +152,29 @@ album_config_keyvalue_handler(struct parcini_line *parsed, void *dst)
 	if (MATCHSK("", "title", parsed)) {
 		free(config->title);
 		return parcini_value_handle(&parsed->value, PARCINI_VALUE_STRING,
-				&config->title) ?
-			KV_HANDLER_OK : KV_HANDLER_BADVALUE;
+		                            &config->title)
+		         ? KV_HANDLER_OK
+		         : KV_HANDLER_BADVALUE;
 	}
 	if (MATCHSK("", "desc", parsed)) {
 		free(config->desc);
 		return parcini_value_handle(&parsed->value, PARCINI_VALUE_STRING,
-				&config->desc) ?
-			KV_HANDLER_OK : KV_HANDLER_BADVALUE;
+		                            &config->desc)
+		         ? KV_HANDLER_OK
+		         : KV_HANDLER_BADVALUE;
 	}
 
 	return KV_HANDLER_NOMATCH;
 }
 
-static bool ini_handler(const char *fpath, ini_keyvalue_handler_fn kvhandler,
-		void *dst)
+static bool
+ini_handler(const char *fpath, ini_keyvalue_handler_fn kvhandler,
+            void *dst)
 {
 	struct parcini_line parsed;
 	enum parcini_result res;
 	parcini_t *parser = parcini_from_file(fpath);
-	if (parser == NULL){
+	if (parser == NULL) {
 		log_printl_errno(LOG_FATAL, "Couldn't open %s", fpath);
 		return false;
 	}
@@ -165,18 +182,19 @@ static bool ini_handler(const char *fpath, ini_keyvalue_handler_fn kvhandler,
 	bool ok = true;
 	enum kv_handler_result hres;
 	while ((res = parcini_parse_next_line(parser, &parsed)) != PARCINI_EOF
-			&& ok) {
+	       && ok) {
 		switch (res) {
 		case PARCINI_KEYVALUE:
 			if ((hres = kvhandler(&parsed, dst)) == KV_HANDLER_BADVALUE) {
 				log_printl(LOG_ERROR, "Error parsing %s:%ld, bad value for key"
-						"%s", fpath, parsed.lineno, parsed.key);
+				                      "%s",
+				           fpath, parsed.lineno, parsed.key);
 				ok = false;
-			} else if(hres == KV_HANDLER_NOMATCH) {
-				log_printl(LOG_ERROR, 
-						"Warning: key '%s' in section '%s' is not a valid "
-						"section-key combination for %s, ignoring.",
-						parsed.key, parsed.section, fpath);
+			} else if (hres == KV_HANDLER_NOMATCH) {
+				log_printl(LOG_ERROR,
+				           "Warning: key '%s' in section '%s' is not a valid "
+				           "section-key combination for %s, ignoring.",
+				           parsed.key, parsed.section, fpath);
 			}
 			continue;
 
@@ -205,8 +223,8 @@ bool
 site_config_read_ini(const char *wdir, struct site_config *config)
 {
 	if (wdir == NULL) {
-		return ini_handler(SITE_CONF, site_config_keyvalue_handler, 
-				config);
+		return ini_handler(SITE_CONF, site_config_keyvalue_handler,
+		                   config);
 	}
 	char *fpath = joinpath(wdir, SITE_CONF);
 	bool ok = ini_handler(fpath, site_config_keyvalue_handler, config);
@@ -226,7 +244,7 @@ site_config_init(void)
 {
 	struct site_config *config = calloc(1, sizeof *config);
 	if (config != NULL) {
-		config->images = (struct image_config) {
+		config->images = (struct image_config){
 			.strip = true,
 			.quality = 80,
 			.max_width = 3000,
@@ -234,7 +252,7 @@ site_config_init(void)
 			.smart_resize = true,
 			.blur = 0,
 		};
-		config->thumbnails = (struct image_config) {
+		config->thumbnails = (struct image_config){
 			.strip = true,
 			.quality = 60,
 			.max_width = 400,

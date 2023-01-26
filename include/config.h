@@ -4,21 +4,21 @@
 #include <stdint.h>
 #include <sys/types.h>
 
-#define SITE_CONF "site.ini"
+#define SITE_CONF  "site.ini"
 #define ALBUM_CONF "album.ini"
 
 struct image_config {
-	bool strip;
+	bool    strip;
 	uint8_t quality;
-	size_t max_width;
-	size_t max_height;
-	bool smart_resize;
-	double blur;
+	size_t  max_width;
+	size_t  max_height;
+	bool    smart_resize;
+	double  blur;
 };
 
 struct site_config {
-	char *title;
-	char *base_url;
+	char               *title;
+	char               *base_url;
 	struct image_config images;
 	struct image_config thumbnails;
 };

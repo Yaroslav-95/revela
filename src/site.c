@@ -27,9 +27,9 @@ static const char *album_meta = ".revela";
 static bool
 prerm_imagedir(const char *path, void *data)
 {
-	struct stat st;
+	struct stat   st;
 	struct album *album = data;
-	char htmlpath[PATH_MAX];
+	char          htmlpath[PATH_MAX];
 
 	if (stat(path, &st)) {
 		log_printl_errno(LOG_ERROR, "Couldn't stat %s", path);
@@ -37,8 +37,8 @@ prerm_imagedir(const char *path, void *data)
 	}
 	if (S_ISDIR(st.st_mode)) {
 		struct image *prev, *next = NULL;
-		size_t i;
-		vector_foreach(album->images, i, prev) {
+		size_t        i;
+		vector_foreach (album->images, i, prev) {
 			if (prev->tstamp > st.st_mtim.tv_sec) {
 				prev = next;
 				break;
@@ -72,23 +72,24 @@ static bool
 wand_passfail(MagickWand *wand, MagickPassFail status)
 {
 	if (status != MagickPass) {
-		char *desc;
+		char         *desc;
 		ExceptionType severity;
 		desc = MagickGetException(wand, &severity);
 		log_printl(LOG_FATAL, "GraphicsMagick error: %.1024s severity: %d\n",
-				desc, severity);
+		           desc, severity);
 		return false;
 	}
 
 	return true;
 }
 
-#define TRYWAND(w, f) if (!wand_passfail(w, f)) goto magick_fail
+#define TRYWAND(w, f) \
+	if (!wand_passfail(w, f)) goto magick_fail
 
 static bool
 optimize_image(MagickWand *wand, const char *dst,
-		const struct image_config *conf, 
-		const struct timespec *srcmtim, bool dry)
+               const struct image_config *conf, const struct timespec *srcmtim,
+               bool dry)
 {
 	log_printl(LOG_DETAIL, "Converting %s", dst);
 	if (dry) goto out;
@@ -98,8 +99,7 @@ optimize_image(MagickWand *wand, const char *dst,
 		TRYWAND(wand, MagickStripImage(wand));
 	}
 	TRYWAND(wand, MagickSetCompressionQuality(wand, conf->quality));
-	unsigned long x = MagickGetImageWidth(wand),
-				  y = MagickGetImageHeight(wand);
+	unsigned long x = MagickGetImageWidth(wand), y = MagickGetImageHeight(wand);
 	/* Resize only if the image is actually bigger. No point in making small
 	 * images bigger. */
 	if (x > nx || y > ny) {
@@ -111,8 +111,8 @@ optimize_image(MagickWand *wand, const char *dst,
 				nx = ny * ratio;
 			}
 		}
-		TRYWAND(wand, MagickResizeImage(wand, nx, ny, GaussianFilter,
-					conf->blur));
+		TRYWAND(wand,
+		        MagickResizeImage(wand, nx, ny, GaussianFilter, conf->blur));
 	}
 	TRYWAND(wand, MagickWriteImage(wand, dst));
 	setdatetime(dst, srcmtim);
@@ -126,18 +126,18 @@ magick_fail:
 static bool
 images_walk(struct site *site, struct vector *images)
 {
-	size_t i;
+	size_t        i;
 	struct image *image;
-	
-	vector_foreach(images, i, image) {
-		struct stat dstat;
-		struct timespec ddate = { .tv_sec = image->tstamp, .tv_nsec = 0 };
-		int imgupdate, thumbupdate;
-		char htmlpath[PATH_MAX];
-		const char *base = rbasename(image->dst);
 
-		log_printl(LOG_DEBUG, "Image: %s, datetime %s", image->basename, 
-				image->datestr);
+	vector_foreach (images, i, image) {
+		struct stat     dstat;
+		struct timespec ddate = {.tv_sec = image->tstamp, .tv_nsec = 0};
+		int             imgupdate, thumbupdate;
+		char            htmlpath[PATH_MAX];
+		const char     *base = rbasename(image->dst);
+
+		log_printl(LOG_DEBUG, "Image: %s, datetime %s", image->basename,
+		           image->datestr);
 
 		if (!nmkdir(image->dst, &dstat, site->dry_run)) return false;
 
@@ -148,12 +148,16 @@ images_walk(struct site *site, struct vector *images)
 		if (!site->dry_run && (!imgupdate || !thumbupdate)) {
 			TRYWAND(site->wand, MagickReadImage(site->wand, image->source));
 		}
-		if (!imgupdate && !optimize_image(site->wand, image->dst_image,
-					&site->config->images, &image->modtime, site->dry_run)) {
+		if (!imgupdate
+		    && !optimize_image(site->wand, image->dst_image,
+		                       &site->config->images, &image->modtime,
+		                       site->dry_run)) {
 			goto magick_fail;
 		}
-		if (!thumbupdate && !optimize_image(site->wand, image->dst_thumb,
-					&site->config->thumbnails, &image->modtime, site->dry_run)) {
+		if (!thumbupdate
+		    && !optimize_image(site->wand, image->dst_thumb,
+		                       &site->config->thumbnails, &image->modtime,
+		                       site->dry_run)) {
 			goto magick_fail;
 		}
 		if (!site->dry_run && (!imgupdate || !thumbupdate)) {
@@ -194,21 +198,24 @@ images_walk(struct site *site, struct vector *images)
 			struct image *next = images->values[i + 1];
 			if (access(next->dst, F_OK) != 0) {
 				image->album->images_updated++;
-				return render_make_image(&site->render, htmlpath, image);
+				if (!render_make_image(&site->render, htmlpath, image)) {
+					return false;
+				}
 			}
-		}
-		if (i > 0) {
-				struct image *prev = images->values[i - 1];
+		} else if (i > 0) {
+			struct image *prev = images->values[i - 1];
 			if (prev->modified) {
 				image->album->images_updated++;
-				return render_make_image(&site->render, htmlpath, image);
+				if (!render_make_image(&site->render, htmlpath, image)) {
+					return false;
+				}
 			}
 		}
 
-	success:
+success:
 		if (!site->dry_run) setdatetime(image->dst, &ddate);
 		continue;
-	magick_fail:
+magick_fail:
 		return false;
 	}
 	return true;
@@ -217,12 +224,12 @@ images_walk(struct site *site, struct vector *images)
 static bool
 albums_walk(struct site *site)
 {
-	size_t i;
+	size_t        i;
 	struct album *album;
 
-	vector_foreach(site->albums, i, album) {
+	vector_foreach (site->albums, i, album) {
 		struct stat dstat;
-		char pathbuf[PATH_MAX];
+		char        pathbuf[PATH_MAX];
 		switch (nmkdir(album->slug, &dstat, site->dry_run)) {
 		case NMKDIR_ERROR:
 			return false;
@@ -251,7 +258,8 @@ albums_walk(struct site *site)
 			if (!render_set_album_vars(&site->render, album)) return false;
 		}
 
-		log_printl(LOG_DEBUG, "Album: %s, datetime %s", album->slug, album->datestr);
+		log_printl(LOG_DEBUG, "Album: %s, datetime %s", album->slug,
+		           album->datestr);
 		if (!images_walk(site, album->images)) {
 			return false;
 		}
@@ -259,10 +267,11 @@ albums_walk(struct site *site)
 		hmap_set(album->preserved, index_html, (char *)index_html);
 		hmap_set(album->preserved, album_meta, (char *)album_meta);
 		ssize_t deleted = rmextra(album->slug, album->preserved, prerm_imagedir,
-				album, site->dry_run);
+		                          album, site->dry_run);
 		if (deleted < 0) {
-			log_printl_errno(LOG_ERROR, 
-						"Something happened while deleting extraneous files");
+			log_printl_errno(
+				LOG_ERROR,
+				"Something happened while deleting extraneous files");
 		} else {
 			album->images_updated += deleted;
 		}
@@ -287,16 +296,16 @@ albums_walk(struct site *site)
 static bool
 traverse(struct site *site, const char *path, struct stat *dstat)
 {
-	bool ok = true;
+	bool ok  = true;
 	DIR *dir = opendir(path);
 	if (!dir) {
 		log_printl_errno(LOG_FATAL, "Can't open directory %s", path);
 		return false;
 	}
-	struct dirent *ent;
+	struct dirent       *ent;
 	struct album_config *album_conf = calloc(1, sizeof *album_conf);
-	struct album *album = album_new(album_conf, site, path,
-			path + site->rel_content_dir, dstat);
+	struct album        *album =
+		album_new(album_conf, site, path, path + site->rel_content_dir, dstat);
 	if (album == NULL) {
 		closedir(dir);
 		return false;
@@ -307,7 +316,7 @@ traverse(struct site *site, const char *path, struct stat *dstat)
 		}
 
 		struct stat fstats;
-		char *subpath = joinpath(path, ent->d_name);
+		char       *subpath = joinpath(path, ent->d_name);
 		if (stat(subpath, &fstats)) {
 			log_printl_errno(LOG_FATAL, "Can't read %s", subpath);
 			ok = false;
@@ -332,11 +341,11 @@ traverse(struct site *site, const char *path, struct stat *dstat)
 		}
 		free(subpath);
 	}
-	
+
 	if (album->images->len != 0) {
 		album_set_year(album);
-		qsort(album->images->values,
-			  album->images->len, sizeof(void *), image_cmp);
+		qsort(album->images->values, album->images->len, sizeof(void *),
+		      image_cmp);
 		vector_push(site->albums, album);
 		closedir(dir);
 		return true;
@@ -352,15 +361,15 @@ bool
 site_build(struct site *site)
 {
 	struct stat dstat;
-	char staticp[PATH_MAX];
-	char startwd[PATH_MAX];
+	char        staticp[PATH_MAX];
+	char        startwd[PATH_MAX];
 	getcwd(startwd, PATH_MAX);
 
 	if (!nmkdir(site->output_dir, &dstat, false)) return false;
 
 	if (chdir(site->output_dir)) {
 		log_printl_errno(LOG_FATAL, "Can't change to directory %s",
-				site->output_dir);
+		                 site->output_dir);
 		return false;
 	}
 
@@ -378,12 +387,14 @@ site_build(struct site *site)
 			return false;
 		}
 		if (rmextra(site->output_dir, site->album_dirs, NULL, NULL,
-					site->dry_run) < 0) {
-			log_printl_errno(LOG_ERROR,
-					"Something happened while deleting extraneous files");
+		            site->dry_run)
+		    < 0) {
+			log_printl_errno(
+				LOG_ERROR,
+				"Something happened while deleting extraneous files");
 		}
 	} else if (!filesync(staticp, site->output_dir, site->album_dirs,
-				site->dry_run)) {
+	                     site->dry_run)) {
 		log_printl(LOG_FATAL, "Can't copy static files");
 		return false;
 	}
@@ -404,7 +415,8 @@ site_load(struct site *site)
 	if (!traverse(site, site->content_dir, &cstat)) return false;
 	qsort(site->albums->values, site->albums->len, sizeof(void *), album_cmp);
 
-	return render_init(&site->render, site->root_dir, site->config, site->albums);
+	return render_init(&site->render, site->root_dir, site->config,
+	                   site->albums);
 }
 
 bool
@@ -422,11 +434,11 @@ site_init(struct site *site)
 		}
 	}
 
-	site->content_dir = joinpath(site->root_dir, CONTENTDIR); 
+	site->content_dir     = joinpath(site->root_dir, CONTENTDIR);
 	site->rel_content_dir = strlen(site->root_dir) + 1;
 	InitializeMagick(NULL);
-	site->wand = NewMagickWand();
-	site->album_dirs = hmap_new();
+	site->wand           = NewMagickWand();
+	site->album_dirs     = hmap_new();
 	site->render.dry_run = site->dry_run;
 
 	roscha_init();
@@ -438,9 +450,9 @@ void
 site_deinit(struct site *site)
 {
 	if (site->albums) {
-		size_t i;
+		size_t        i;
 		struct album *a;
-		vector_foreach(site->albums, i, a) {
+		vector_foreach (site->albums, i, a) {
 			album_destroy(a);
 		}
 		vector_free(site->albums);

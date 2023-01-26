@@ -10,27 +10,29 @@
 static void
 images_walk(struct vector *images)
 {
-	size_t i;
+	size_t        i;
 	struct image *image;
-	size_t last = images->len - 1;
+	size_t        last = images->len - 1;
 
-	vector_foreach(images, i, image) {
-		roscha_hmap_set_new(image->map, "source", (slice_whole(image->url_image)));
+	vector_foreach (images, i, image) {
+		roscha_hmap_set_new(image->map, "source",
+		                    (slice_whole(image->url_image)));
 		roscha_hmap_set_new(image->map, "date", (slice_whole(image->datestr)));
 		char *url;
 		if (i > 0) {
 			struct image *prev = images->values[i - 1];
-			url = prev->url;
+			url                = prev->url;
 			roscha_hmap_set_new(image->map, "prev", (slice_whole(url)));
 		}
 		if (i < last) {
 			struct image *next = images->values[i + 1];
-			url = next->url;
+			url                = next->url;
 			roscha_hmap_set_new(image->map, "next", (slice_whole(url)));
 		}
 
 		roscha_hmap_set_new(image->thumb, "link", (slice_whole(image->url)));
-		roscha_hmap_set_new(image->thumb, "source", (slice_whole(image->url_thumb)));
+		roscha_hmap_set_new(image->thumb, "source",
+		                    (slice_whole(image->url_thumb)));
 
 		roscha_vector_push(image->album->thumbs, image->thumb);
 	}
@@ -38,9 +40,9 @@ images_walk(struct vector *images)
 
 static inline void
 years_push_new_year(struct roscha_object *years, char *yearstr,
-		struct roscha_object **year, struct roscha_object **albums)
+                    struct roscha_object **year, struct roscha_object **albums)
 {
-	*year = roscha_object_new(hmap_new_with_cap(8));
+	*year   = roscha_object_new(hmap_new_with_cap(8));
 	*albums = roscha_object_new(vector_new_with_cap(8));
 	roscha_hmap_set_new((*year), "name", (slice_whole(yearstr)));
 	roscha_hmap_set(*year, "albums", *albums);
@@ -57,7 +59,7 @@ years_push_album(struct roscha_object *years, struct album *album)
 	if (years->vector->len == 0) {
 		years_push_new_year(years, album->year, &years, &albums);
 	} else {
-		year = years->vector->values[years->vector->len - 1];
+		year                          = years->vector->values[years->vector->len - 1];
 		struct roscha_object *yearval = roscha_hmap_get(year, "name");
 		if (strcmp(yearval->slice.str, album->year)) {
 			years_push_new_year(years, album->year, &year, &albums);
@@ -71,14 +73,13 @@ years_push_album(struct roscha_object *years, struct album *album)
 bool
 render_set_album_vars(struct render *r, struct album *album)
 {
-
 	if (album->config->title) {
 		roscha_hmap_set_new(album->map, "title",
-				(slice_whole(album->config->title)));
+		                    (slice_whole(album->config->title)));
 	}
 	if (album->config->desc) {
 		roscha_hmap_set_new(album->map, "desc",
-				(slice_whole(album->config->desc)));
+		                    (slice_whole(album->config->desc)));
 	}
 	roscha_hmap_set_new(album->map, "link", (slice_whole(album->url)));
 	roscha_hmap_set_new(album->map, "date", (slice_whole(album->datestr)));
@@ -103,10 +104,10 @@ render_set_album_vars(struct render *r, struct album *album)
 static bool
 render(struct roscha_env *env, const char *tmpl, const char *opath)
 {
-	bool ok = true;
-	sds output = roscha_env_render(env, tmpl);
+	bool   ok     = true;
+	sds    output = roscha_env_render(env, tmpl);
 	size_t outlen = strlen(output);
-	FILE *f = fopen(opath, "w");
+	FILE  *f      = fopen(opath, "w");
 	if (fwrite(output, 1, outlen, f) != outlen) {
 		ok = false;
 		log_printl_errno(LOG_FATAL, "Can't write %s", opath);
@@ -182,9 +183,9 @@ done:
 
 bool
 render_init(struct render *r, const char *root, struct site_config *conf,
-		struct vector *albums)
+            struct vector *albums)
 {
-	char *tmplpath = joinpath(root, TEMPLATESDIR);
+	char       *tmplpath = joinpath(root, TEMPLATESDIR);
 	struct stat tstat;
 	if (stat(tmplpath, &tstat) == -1) {
 		if (errno == ENOENT) {
@@ -200,21 +201,19 @@ render_init(struct render *r, const char *root, struct site_config *conf,
 
 	if (r->dry_run) goto cleanup;
 
-	r->env = roscha_env_new();
-	bool ok =  roscha_env_load_dir(r->env, tmplpath);
+	r->env  = roscha_env_new();
+	bool ok = roscha_env_load_dir(r->env, tmplpath);
 	if (!ok) {
 		struct vector *errors = roscha_env_check_errors(r->env);
 		log_printl(LOG_FATAL, "Couldn't initialize template engine: %s",
-				errors->values[0]);
+		           errors->values[0]);
 		return false;
 	}
-	r->years = roscha_object_new(vector_new_with_cap(8));
+	r->years  = roscha_object_new(vector_new_with_cap(8));
 	r->albums = roscha_object_new(vector_new_with_cap(64));
 
 	roscha_hmap_set_new(r->env->vars, "title", (slice_whole(conf->title)));
 	roscha_hmap_set_new(r->env->vars, "index", (slice_whole(conf->base_url)));
-
-	//bstree_inorder_walk(albums->root, albums_walk, (void *)r);
 
 cleanup:
 	free(tmplpath);

@@ -13,9 +13,8 @@
 #define VERSION "0.1.2"
 #endif
 
-static const char *usage =
-	"Usage: %s [OPTIONS] -o <output dir>\n"
-	"For more information consult `man 1 revela`\n";
+static const char *usage = "Usage: %s [OPTIONS] -o <output dir>\n"
+						   "For more information consult `man 1 revela`\n";
 
 static struct site site = {0};
 static enum log_level loglvl = LOG_DETAIL;
@@ -47,7 +46,7 @@ parse_arguments(int argc, char *argv[])
 			printf(usage, cmd);
 			exit(0);
 		case 'V':
-			printf("revela "VERSION"\n");
+			printf("revela " VERSION "\n");
 			exit(0);
 		default:
 			bad_arguments(cmd);
@@ -69,8 +68,9 @@ main(int argc, char *argv[])
 	log_set_verbosity(loglvl);
 #endif
 
-	int ret = site_init(&site) && site_load(&site) && site_build(&site) 
-		? EXIT_SUCCESS : EXIT_FAILURE;
+	int ret = site_init(&site) && site_load(&site) && site_build(&site)
+	            ? EXIT_SUCCESS
+	            : EXIT_FAILURE;
 
 	if (site.dry_run) {
 		log_printl(LOG_INFO, "==== [DRY RUN] ====");

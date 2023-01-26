@@ -43,7 +43,3 @@ system, or read the contents in `docs/` in the source.
 * Add exif tags to template hashmap.
 * Better test coverage? (if I am not too lazy).
 * Document templates.
-* Improve performance? by generating html in a separate thread, e.g. send the
-  jobs to a queue in a separate thread in order to render at the same time as
-  images are converted with GraphicsMagick. Not sure if it would actually
-  improve performance or be worth the added complexity.

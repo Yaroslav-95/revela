@@ -23,7 +23,7 @@
 
 #define BUFSIZE 8192
 
-#define CONTENTDIR "content"
+#define CONTENTDIR   "content"
 #define DEFAULTALBUM "unorganized"
 
 /*
@@ -73,7 +73,7 @@ nmkdir(const char *path, struct stat *dstat, bool dry)
 		return NMKDIR_NOOP;
 	}
 
-	if(mkdir(path, 0755) < 0) {
+	if (mkdir(path, 0755) < 0) {
 		if (errno == EEXIST) {
 			if (stat(path, dstat)) {
 				log_printl_errno(LOG_FATAL, "Can't read %s", path);
@@ -107,7 +107,7 @@ isimage(const char *fname)
 {
 	char *ext = strrchr(fname, '.');
 	if (!ext || *(ext + 1) == '\0') return false;
-	
+
 	ext++;
 	for (size_t i = 0; img_extensions[i] != NULL; i++) {
 		if (!strcasecmp(ext, img_extensions[i])) return true;
@@ -120,7 +120,7 @@ const char *
 delext(const char *restrict basename, char *restrict buf, size_t n)
 {
 	const char *ext = strrchr(basename, '.');
-	size_t i = ext - basename;
+	size_t      i   = ext - basename;
 	if (i + 1 > n) return NULL;
 	memcpy(buf, basename, i);
 	buf[i] = '\0';
@@ -149,8 +149,8 @@ void
 setdatetime(const char *path, const struct timespec *mtim)
 {
 	struct timespec tms[] = {
-		{ .tv_sec = mtim->tv_sec, .tv_nsec = mtim->tv_nsec },
-		{ .tv_sec = mtim->tv_sec, .tv_nsec = mtim->tv_nsec },
+		{.tv_sec = mtim->tv_sec, .tv_nsec = mtim->tv_nsec},
+		{.tv_sec = mtim->tv_sec, .tv_nsec = mtim->tv_nsec},
 	};
 	if (utimensat(AT_FDCWD, path, tms, 0) == -1) {
 		log_printl_errno(LOG_ERROR, "Warning: couldn't set times of %s", path);
@@ -167,7 +167,7 @@ rmentry(const char *path, bool dry)
 	}
 
 	if (S_ISDIR(st.st_mode)) {
-		DIR *dir = opendir(path);
+		DIR           *dir = opendir(path);
 		struct dirent *ent;
 		while ((ent = readdir(dir))) {
 			if (!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, "..")) {
@@ -201,10 +201,10 @@ error:
 
 ssize_t
 rmextra(const char *path, struct hmap *preserved, preremove_fn cb,
-		void *data, bool dry)
+        void *data, bool dry)
 {
 	ssize_t removed = 0;
-	DIR *dir = opendir(path);
+	DIR    *dir     = opendir(path);
 	if (dir == NULL) {
 		return dry ? 0 : -1;
 	}
@@ -235,12 +235,12 @@ rmextra(const char *path, struct hmap *preserved, preremove_fn cb,
 
 bool
 filesync(const char *restrict srcpath, const char *restrict dstpath,
-		struct hmap *preserved, bool dry)
+         struct hmap *preserved, bool dry)
 {
-	int fdsrc;
-	struct stat stsrc;
-	struct vector *own = NULL;
-	bool cleanup = false;
+	int            fdsrc;
+	struct stat    stsrc;
+	struct vector *own     = NULL;
+	bool           cleanup = false;
 
 	fdsrc = open(srcpath, O_RDONLY);
 	if (fdsrc < 0) {
@@ -256,14 +256,14 @@ filesync(const char *restrict srcpath, const char *restrict dstpath,
 		if (mkdir(dstpath, 0755)) {
 			if (errno != EEXIST) {
 				log_printl_errno(LOG_ERROR, "Couldn't create directory %s",
-						dstpath);
+				                 dstpath);
 				goto dir_error;
 			}
 			if (stat(dstpath, &stsrc)) {
 				log_printl_errno(LOG_ERROR, "Couldn't stat %s", dstpath);
 				goto dir_error;
 			}
-			if (!S_ISDIR(stsrc.st_mode)){
+			if (!S_ISDIR(stsrc.st_mode)) {
 				log_printl(LOG_ERROR, "%s is not a directory", dstpath);
 				errno = ENOTDIR;
 				goto dir_error;
@@ -343,20 +343,20 @@ filesync(const char *restrict srcpath, const char *restrict dstpath,
 #ifdef __linux__
 	ssize_t nwrote = sendfile(fddst, fdsrc, NULL, stsrc.st_size);
 	if (nwrote != stsrc.st_size) {
-		log_printl_errno(LOG_ERROR, "Failed to copy %s (wrote %lu/%lu bytes)", 
-				dstpath, nwrote, stsrc.st_size);
+		log_printl_errno(LOG_ERROR, "Failed to copy %s (wrote %lu/%lu bytes)",
+		                 dstpath, nwrote, stsrc.st_size);
 		goto copy_error;
 	}
 #else
-	char buf[BUFSIZE];
+	char    buf[BUFSIZE];
 	ssize_t nread;
 
 	while ((nread = read(fdsrc, buf, BUFSIZE)) > 0) {
 		ssize_t nwrote = write(fddst, buf, nread);
 		if (nread != nwrote) {
 			log_printl_errno(LOG_ERROR, "Failed to copy %s "
-					"(buffer wrote %lu/%lu bytes)", 
-					dstpath, nwrote, nread);
+			                            "(buffer wrote %lu/%lu bytes)",
+			                 dstpath, nwrote, nread);
 			goto copy_error;
 		}
 	}
@@ -367,8 +367,8 @@ filesync(const char *restrict srcpath, const char *restrict dstpath,
 #endif
 
 	struct timespec tms[] = {
-		{ .tv_sec = stsrc.st_mtim.tv_sec, .tv_nsec = stsrc.st_mtim.tv_nsec },
-		{ .tv_sec = stsrc.st_mtim.tv_sec, .tv_nsec = stsrc.st_mtim.tv_nsec },
+		{.tv_sec = stsrc.st_mtim.tv_sec, .tv_nsec = stsrc.st_mtim.tv_nsec},
+		{.tv_sec = stsrc.st_mtim.tv_sec, .tv_nsec = stsrc.st_mtim.tv_nsec},
 	};
 	futimens(fddst, tms);
 

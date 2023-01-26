@@ -22,7 +22,7 @@ struct site {
 	char *root_dir;
 	char *output_dir;
 	char *content_dir;
-	/* 
+	/*
 	 * Indicates how many characters after the full root dir path of the input
 	 * directory the relative path of the albums + the content dir start. See
 	 * site_init()

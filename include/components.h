@@ -45,7 +45,7 @@ struct image {
 	struct roscha_object *map;
 	/* hashmap with values to be passed to the thumbs vector */
 	struct roscha_object *thumb;
-	/* 
+	/*
 	 * Whether this image was modified since the last time the gallery was
 	 * generated.
 	 */
@@ -100,7 +100,7 @@ int image_cmp(const void *a, const void *b);
 void image_destroy(struct image *);
 
 struct album *album_new(struct album_config *, struct site *,
-		const char *src, const char *rsrc, const struct stat *);
+                        const char *src, const char *rsrc, const struct stat *);
 
 int album_cmp(const void *a, const void *b);
 

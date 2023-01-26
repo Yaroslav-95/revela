@@ -67,8 +67,8 @@ slugify(const char *path, const char *base_url, char **url)
 }
 
 static void
-image_date_from_stat(struct image *image, const struct stat *pstat, 
-		struct tm *date)
+image_date_from_stat(struct image *image, const struct stat *pstat,
+                     struct tm *date)
 {
 	image->tstamp = pstat->st_mtim.tv_sec;
 	localtime_r(&image->tstamp, date);
@@ -93,15 +93,15 @@ image_set_date(struct image *image, const struct stat *pstat)
 	}
 
 	ExifEntry *entry = exif_content_get_entry(
-			image->exif_data->ifd[EXIF_IFD_EXIF], EXIF_TAG_DATE_TIME_ORIGINAL);
+		image->exif_data->ifd[EXIF_IFD_EXIF], EXIF_TAG_DATE_TIME_ORIGINAL);
 	if (entry == NULL) {
 		entry = exif_content_get_entry(
 			image->exif_data->ifd[EXIF_IFD_EXIF], EXIF_TAG_DATE_TIME_DIGITIZED);
 		if (entry == NULL) {
 			log_printl(LOG_DEBUG, "No date exif tags present in %s",
-					image->source);
+			           image->source);
 			log_printl(LOG_DEBUG, "Using date from stat for file %s",
-					image->source);
+			           image->source);
 			image_date_from_stat(image, pstat, &date);
 			goto out;
 		}
@@ -148,7 +148,7 @@ image_new(char *src, const struct stat *pstat, struct album *album)
 
 	if ((image->ext = delext(image->basename, noext, NAME_MAX + 1)) == NULL) {
 		log_printl(LOG_FATAL, "Can't read %s, file name too long",
-				image->basename);
+		           image->basename);
 		free(image);
 		return NULL;
 	}
@@ -156,13 +156,12 @@ image_new(char *src, const struct stat *pstat, struct album *album)
 	size_t relstart = album->slug - album->url;
 	image->url = joinpath(album->url, noext);
 	image->url_image = joinpath(image->url, image->basename);
-	image->url_thumb = malloc(strlen(image->url) + strlen(THUMB_SUFFIX) +
-			strlen(image->basename) + 2);
+	image->url_thumb = malloc(strlen(image->url) + strlen(THUMB_SUFFIX) + strlen(image->basename) + 2);
 	image->dst = image->url + relstart;
 	image->dst_image = image->url_image + relstart;
 	image->dst_thumb = image->url_thumb + relstart;
 	sprintf(image->url_thumb, "%s/%s" THUMB_SUFFIX "%s", image->url,
-			noext, image->ext);
+	        noext, image->ext);
 
 	image->exif_data = exif_data_new_from_file(image->source);
 	image->modtime = pstat->st_mtim;
@@ -201,7 +200,7 @@ image_destroy(struct image *image)
 
 struct album *
 album_new(struct album_config *conf, struct site *site, const char *src,
-		const char *rsrc, const struct stat *dstat)
+          const char *rsrc, const struct stat *dstat)
 {
 	struct album *album = calloc(1, sizeof *album);
 	if (album == NULL) {
@@ -227,7 +226,6 @@ album_cmp(const void *va, const void *vb)
 	struct album *a = *(struct album **)va, *b = *(struct album **)vb;
 	/* Compare in descending order */
 	return (a->tstamp < b->tstamp) - (a->tstamp > b->tstamp);
-
 }
 
 void
@@ -257,7 +255,7 @@ album_destroy(struct album *album)
 	}
 	size_t i;
 	struct image *img;
-	vector_foreach(album->images, i, img) {
+	vector_foreach (album->images, i, img) {
 		image_destroy(img);
 	}
 	vector_free(album->images);

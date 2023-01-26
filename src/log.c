@@ -17,7 +17,7 @@ void
 log_printf(enum log_level lvl, const char *restrict fmt, ...)
 {
 	if (lvl > log_verbosity) return;
-	FILE *out = lvl < LOG_INFO ? stderr : stdout;
+	FILE   *out = lvl < LOG_INFO ? stderr : stdout;
 	va_list args;
 	va_start(args, fmt);
 	vfprintf(out, fmt, args);

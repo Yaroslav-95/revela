@@ -24,7 +24,7 @@ struct index_template {
 	struct roscha_object *years;
 };
 
-/* 
+/*
  * Variables for the album template and album elements in the albums vector of
  * the index template.
  */
@@ -77,15 +77,15 @@ struct render {
 bool render_make_index(struct render *, const char *path);
 
 bool render_make_album(struct render *r, const char *path,
-		const struct album *album);
+                       const struct album *album);
 
 bool render_make_image(struct render *r, const char *path,
-		const struct image *image);
+                       const struct image *image);
 
 bool render_set_album_vars(struct render *, struct album *);
 
 bool render_init(struct render *, const char *path, struct site_config *,
-		struct vector *albums);
+                 struct vector *albums);
 
 void render_deinit(struct render *);
 

@@ -14,12 +14,12 @@ enum nmkdir_res {
 	NMKDIR_CREATED,
 };
 
-/* 
+/*
  * Returns a pointer to where the basename of the file is inside path.
  */
 const char *rbasename(const char *path);
 
-/* 
+/*
  * Makes a new directory if it doesn't exist. If there were errors returns
  * false, otherwise returns true.
  */
@@ -49,23 +49,23 @@ const char *delext(const char *restrict basename, char *restrict dest, size_t n)
  */
 int file_is_uptodate(const char *path, const struct timespec *srcmtim);
 
-/* 
+/*
  * Sets access and modification times to the time passed.
  */
 void setdatetime(const char *path, const struct timespec *mtim);
 
 bool rmentry(const char *path, bool dry);
 
-/* 
+/*
  * Recursively deletes extaneous files from directory, keeping files in the
  * preserved hmap. Returns -1 on error, number of deleted entries on success.
  * The number is not the total number of files on all subdirectories, but only
  * the number of files/dirs deleted from the directory pointed by path.
  */
 ssize_t rmextra(const char *path, struct hmap *preserved, preremove_fn,
-		void *data, bool dry);
+                void *data, bool dry);
 
-/* 
+/*
  * Copies file(s) truncating and overwritting the file(s) in the destination
  * path if they exist and are not a directory, or creating them if they don't
  * exist. If srcpath is a directory, copies all files within that directory
@@ -73,6 +73,6 @@ ssize_t rmextra(const char *path, struct hmap *preserved, preremove_fn,
  * timestamps do not match.
  */
 bool filesync(const char *restrict srcpath, const char *restrict dstpath,
-		struct hmap *preserved, bool dry);
+              struct hmap *preserved, bool dry);
 
 #endif
