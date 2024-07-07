@@ -1,6 +1,6 @@
 CC?=gcc
 XFLAGS=-D_XOPEN_SOURCE=500 -D_POSIX_C_SOURCE=200809L
-CFLAGS?=-std=c11 -O2 -flto -Wall $(XFLAGS)
+CFLAGS+=-std=c11 -O2 -flto -Wall $(XFLAGS)
 
 LIBS:=-lexif
 LIBS+=$(shell pkg-config --cflags --libs GraphicsMagickWand)
