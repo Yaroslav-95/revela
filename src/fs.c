@@ -1,14 +1,12 @@
 #include "fs.h"
 
 #include "log.h"
-#include "config.h"
 
 #include "vector.h"
 #include "slice.h"
 
 #include <fcntl.h>
 #include <stdio.h>
-#include <ctype.h>
 #include <unistd.h>
 #include <stdint.h>
 #include <stdlib.h>

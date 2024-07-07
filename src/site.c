@@ -36,14 +36,14 @@ prerm_imagedir(const char *path, void *data)
 		return false;
 	}
 	if (S_ISDIR(st.st_mode)) {
-		struct image *prev, *next = NULL;
+		struct image *prev = NULL, *next = NULL, *cur;
 		size_t        i;
-		vector_foreach (album->images, i, prev) {
-			if (prev->tstamp > st.st_mtim.tv_sec) {
-				prev = next;
+		vector_foreach (album->images, i, cur) {
+			if (cur->tstamp > st.st_mtim.tv_sec) {
+				next = cur;
 				break;
 			}
-			next = prev;
+			prev = cur;
 		}
 		if (prev) {
 			if (!prev->modified) {
@@ -53,7 +53,7 @@ prerm_imagedir(const char *path, void *data)
 				}
 			}
 		}
-		if (next != prev) {
+		if (next) {
 			if (!next->modified) {
 				joinpathb(htmlpath, next->dst, index_html);
 				if (!render_make_image(&album->site->render, htmlpath, next)) {
