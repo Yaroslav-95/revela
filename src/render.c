@@ -132,7 +132,7 @@ render_make_index(struct render *r, const char *path)
 	if (r->dry_run) goto done;
 
 	roscha_hmap_set(r->env->vars, "years", r->years);
-	roscha_hmap_set(r->env->vars, "albums", r->years);
+	roscha_hmap_set(r->env->vars, "albums", r->albums);
 	ok = render(r->env, "index.html", path);
 	roscha_hmap_unset(r->env->vars, "years");
 	roscha_hmap_unset(r->env->vars, "albums");
