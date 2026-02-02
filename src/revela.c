@@ -10,7 +10,7 @@
 #include "config.h"
 
 #ifndef VERSION
-#define VERSION "0.1.2"
+#define VERSION "0.1.6"
 #endif
 
 static const char *usage = "Usage: %s [OPTIONS] -o <output dir>\n"

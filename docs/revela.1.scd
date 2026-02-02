@@ -6,7 +6,8 @@ revela - static image gallery generator.
 
 # SYNOPSIS
 
-*revela* [_OPTIONS_] <_-o OUTPUT DIR_>
+*revela* [OPTIONS] -o <OUTPUT DIR>
+
 *revela-init*
 
 # DESCRIPTION
